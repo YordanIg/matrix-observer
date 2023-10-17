@@ -1,4 +1,4 @@
 *.pdf
 .ipynb_checkpoints/
 venvskob/
-.DS_Store/
+.DS_Store
