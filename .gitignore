@@ -1,4 +1,6 @@
+__pycache__/
 *.pdf
 .ipynb_checkpoints/
 venvskob/
 .DS_Store
+test_*
