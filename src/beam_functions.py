@@ -17,7 +17,7 @@ import h5py
 import astropy
 import matplotlib.pyplot as plt
 
-import spherical_harmonics as SH
+import src.spherical_harmonics as SH
 
 def beam_cos(theta, theta0=1.0):
     """
