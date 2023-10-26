@@ -213,7 +213,7 @@ def foreground_gdsm_alm(nu, lmax=40, nside=None, map=False):
 
     If map is True, also returns the alm represented as a series of
     healpix maps. The resulting nside will match the nside argument,
-    or will be 
+    or will be the same as the GDSM's low-resolution map.
     """
     #are we dealing with multiple frequencies or not
     try:
