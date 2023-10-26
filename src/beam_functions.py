@@ -81,7 +81,7 @@ def calc_blm(nside, lmax, beam_use=beam_cos, norm_flag=True):
 
     #convert complex blm into real blm
     RS = SH.RealSphericalHarmonics()
-    blm_real = RS.Complex2RealALM(blm_clean)
+    blm_real = RS.complex2RealALM(blm_clean)
 
     return blm_real
 
