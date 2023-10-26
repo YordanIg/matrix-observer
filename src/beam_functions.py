@@ -124,15 +124,15 @@ def _test_convolution(map_input = None, nside = 8, lmax = 20, beam=beam_cos):
         map_input = 100.0 * np.ones(npix)
 
     #calculate the real alm of the constant map
-    RS = TA.RealSphericalHarmonics()
+    RS = SH.RealSphericalHarmonics()
     alm = healpy.sphtfunc.map2alm(map_input, lmax=lmax, use_weights=False)
-    alm_real = RS.Complex2RealALM(alm)
+    alm_real = RS.complex2RealALM(alm)
 
     #calculate beam matrix
     beam_matrix = calc_beam_matrix(nside, lmax, beam)
 
     #convolve by multiplication and map back to space
-    Y = SH.calculate_Y(nside=nside, lmax=lmax)
+    Y = SH.calc_spherical_harmonic_matrix(nside=nside, lmax=lmax)
     map_convolve = Y @ beam_matrix @ alm_real
 
     #compare input and recovered maps
