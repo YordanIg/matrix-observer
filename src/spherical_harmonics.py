@@ -135,8 +135,8 @@ class RealSphericalHarmonics:
         tol = 1.0e-4
 
         almr = np.arange(self.get_size(lmax)) + 1
-        almc = self.Real2ComplexALM(almr)
-        almr_recover = self.Complex2RealALM(almc)
+        almc = self.real2ComplexALM(almr)
+        almr_recover = self.complex2RealALM(almc)
 
         #test start and end values are within tol of each other
         for i in range(len(almr)):
@@ -217,7 +217,7 @@ def calc_spherical_harmonic_matrix(nside=8, lmax=20):
     nalm_real = RS.get_size(lmax)
     Y_real = np.zeros((npix, nalm_real))
     for i in range(npix):
-        Y_real[i,:] = RS.Complex2RealALM(Y_complex[i,:])
+        Y_real[i,:] = RS.complex2RealALM(Y_complex[i,:])
 
     return Y_real
 
@@ -242,7 +242,7 @@ def calc_inv_spherical_harmonic_matrix(nside=8, lmax=20):
     print(npix, nalm)
 
     #inverse matrix for Y is really just a rescaled version of Y.T
-    Y = CYM.calc_spherical_harmonic_matrix(nside=nside, lmax=lmax)
+    Y = calc_spherical_harmonic_matrix(nside=nside, lmax=lmax)
     invY = Y.T * (4*np.pi) / npix
 
     return invY
@@ -262,8 +262,7 @@ def _test_reconstruction(nside=8, lmax=20, use_random=True, show_images=True):
     and the filtered/reconstructed maps won't completely agree because there is
     extra information in the input map that isn't captured in the filtering.
     """
-    from pygdsm import GlobalSkyModel16
-    from pygdsm import GlobalSkyModel
+    from pygdsm import GlobalSkyModel2016
 
     #select the map to test against
     if use_random:
