@@ -21,7 +21,10 @@ def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
     use dnu (frequency bin width in MHz), Ntau (number of time bins) and t_int 
     (total integration time in hours) to calculate dtB for each bin, or pass dtB
     directly.
-    Returns the tuple: (data, data noise)
+
+    Returns the tuple: (data, data noise covar matrix)
+    The noise covariance is assumed to be a diagonal matrix, with the noise
+    variance along the diagonals.
     """
     np.random.seed(seed)
     #if t_int is passed, use it to calculate dtB
@@ -30,7 +33,8 @@ def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
         dtB = dt*1e+6*dnu        #convert interval to Hertz and multiply by B
     
     temperr = temps/np.sqrt(dtB)
-    return np.random.normal(temps, temperr), temperr
+    covar = np.diag(temperr**2)
+    return np.random.normal(temps, temperr), covar
 
 def cm21_globalT(nu, A=-0.2, nu0=80.0, dnu = 5.0):
     """
