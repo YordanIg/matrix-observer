@@ -15,6 +15,23 @@ from src.spherical_harmonics import RealSphericalHarmonics
 
 RS = RealSphericalHarmonics()
 
+def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
+    """
+    Generate Gaussian radiometer noise for the passed temperature vector. Either 
+    use dnu (frequency bin width in MHz), Ntau (number of time bins) and t_int 
+    (total integration time in hours) to calculate dtB for each bin, or pass dtB
+    directly.
+    Returns the tuple: (data, data noise)
+    """
+    np.random.seed(seed)
+    #if t_int is passed, use it to calculate dtB
+    if t_int is not None:
+        dt  = 3600*t_int/(Ntau)  #interval in seconds
+        dtB = dt*1e+6*dnu        #convert interval to Hertz and multiply by B
+    
+    temperr = temps/np.sqrt(dtB)
+    return np.random.normal(temps, temperr), temperr
+
 def cm21_globalT(nu, A=-0.2, nu0=80.0, dnu = 5.0):
     """
     Return the Gaussian 21-cm monopole model Tmon(nu) for an
