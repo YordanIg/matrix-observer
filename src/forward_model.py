@@ -35,15 +35,27 @@ def calc_averaging_matrix(Ntau, Nt):
     return averaging_matrix
 
 def calc_observation_matrix_zenith_driftscan(nside, lmax, Ntau, lat=-26, lon=0, 
-                            Nt=np.linspace(0, 24, 24, endpoint=False)):
+                            times=np.linspace(0, 24, 24, endpoint=False)):
     """
     Calculate the total observation and binning matrix A = GPYB
     for a single drifscan antenna pointing at zenith with a cos^2
-    beamfunction.
+    beamfunction. If Ntau = len(times), G is just the identity matrix.
     """
-    coords = CO.obs_zenith_drift_scan(lat, lon, Nt)
+    coords = CO.obs_zenith_drift_scan(lat, lon, times)
     mat_G = calc_averaging_matrix(Ntau=Ntau, lmax=lmax)
     mat_P = CO.calc_pointing_matrix(coords, nside=nside, pixels=False)
     mat_Y = SH.calc_spherical_harmonic_matrix(nside, lmax)
     mat_B = BF.calc_beam_matrix(nside, lmax, beam_use=BF.beam_cos)
     return mat_G @ mat_P @ mat_Y @ mat_B
+
+def calc_observation_matrix_all_pix(nside, lmax, Ntau):
+    """
+    Calculate the total observation and binning matrix A = GPYB
+    for a hypothetical antenna experiment that can point at every pixel once.
+    If Ntau = len(times), G is just the identity matrix.
+    """
+    #pointing matrix is just the identity matrix, so not included
+    mat_G = calc_averaging_matrix(Ntau=Ntau, lmax=lmax)
+    mat_Y = SH.calc_spherical_harmonic_matrix(nside, lmax)
+    mat_B = BF.calc_beam_matrix(nside, lmax, beam_use=BF.beam_cos)
+    return mat_G @ mat_Y @ mat_B
