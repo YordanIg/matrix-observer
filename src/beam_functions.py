@@ -40,7 +40,7 @@ def beam_gauss(theta, theta0=0.1):
     Example beam function. Azimuthally symmetrix beam
     as can not depend on phi.
 
-    Define a single lobe cos^2 beam
+    Define a gaussian beam.
     """
     if theta < np.pi/2.0:
         b = np.exp(-(theta/theta0)**2/2.0)
@@ -52,7 +52,9 @@ def beam_map(nside, beam=beam_cos, norm_flag=True):
     """
     Calculate the beam map for an aximuthally symmetric beam
 
-    Note that beam can only depend upon theta by design.
+    beam_use:
+        The beamfunction to use. A function of theta only. Doesn't have to 
+        be normalised (norm_flag=True deals with that).
     """
     #create an empty map and then fill it in with the desired beam shape
     npix = healpy.nside2npix(nside)
@@ -93,6 +95,10 @@ def calc_beam_matrix(nside, lmax, beam_use=beam_cos, norm_flag=True):
     np.sqrt(4.0*np.pi/(2.0*l+1))
     for the bl. I understand where this comes from, but not why
     it's not mentioned in some of the papers.
+
+    beam_use:
+        The beamfunction to use. A function of theta only. Doesn't have to 
+        be normalised (norm_flag=True deals with that).
 
     returns:
         beam_matrix - (nalm x nalm) real matrix with bl on diagonal
