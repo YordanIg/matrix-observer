@@ -234,7 +234,7 @@ def foreground_gdsm_alm(nu, lmax=40, nside=None, map=False):
 
     If map is True, also returns the alm represented as a series of
     healpix maps. The resulting nside will match the nside argument,
-    or will be the same as the GDSM's low-resolution map.
+    or will be the same as the GDSM's high-resolution map.
     """
     #are we dealing with multiple frequencies or not
     try:
@@ -282,7 +282,7 @@ def foreground_gdsm_galcut_alm(nu, lmax=40, nside=None, map=False):
 
     If map is True, also returns the alm represented as a series of
     healpix maps. The resulting nside will match the nside argument,
-    or will be the same as the GDSM's low-resolution map.
+    or will be the same as the GDSM's high-resolution map.
 
     This function cuts the galaxy out (setting values to the mean map value), 
     and sets all negative temperatures to zero too.
@@ -325,4 +325,59 @@ def foreground_gdsm_galcut_alm(nu, lmax=40, nside=None, map=False):
     return map_real_alm.flatten()
 
 
+def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
+    '''
+    An extrapolation of the GDSM sky back to the 21-cm frequency range as used
+    in Anstey et. al. 2021 (arXiv:2010.09644).
 
+    Calculate the vector of real alm for the GSMA evaluated
+    at the frequenc(y/ies) nu. Returns the alms in a flat array 
+    (alms(nu1), alms(nu2), ...). 
+    
+    If nside is given, the GSMA map is first up/downgraded to this nside.
+    This helps speed up conversion to spherical harmonics, but may lose 
+    information.
+
+    If map is True, also returns the alm represented as a series of
+    healpix maps. The resulting nside will match the nside argument,
+    or will be equal to 512, the native resolution of the GSMA.
+    '''
+    #load the gsma indexes
+    T_CMB = 2.725
+    try:
+        T_408, indexes = np.load('/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes.npy')
+    except:
+        raise Exception("Indexes for the Anstey sky have not been "\
+                        +"generated.")
+
+    #are we dealing with multiple frequencies or not
+    try:
+        len(nu)
+        multifreq = True
+    except:
+        multifreq = False
+    
+    #generate the map
+    gsma_map = (T_408 - T_CMB)*(nu/408)**(-indexes)
+    
+    #degrade the foreground map to the size we want
+    if nside is not None:
+        gsma_map = healpy.pixelfunc.ud_grade(gsma_map, nside_out=nside)
+    nside = healpy.npix2nside(np.shape(gsma_map)[-1])
+
+    #convert to (real) alm, dealing with both multi and single freq cases
+    if multifreq:
+        map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gsma_map]
+        map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
+    else:
+        map_alm = healpy.sphtfunc.map2alm(gsma_map, lmax=lmax)
+        map_real_alm = RS.complex2RealALM(map_alm)
+
+    #convert the alm back to healpix maps
+    if map:
+        if multifreq:
+            reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
+        else:
+            reconstucted_map = healpy.sphtfunc.alm2map(map_alm, nside=nside)
+        return map_real_alm.flatten(), reconstucted_map
+    return map_real_alm.flatten()
