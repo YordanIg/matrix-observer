@@ -34,7 +34,7 @@ def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
     
     temperr = temps/np.sqrt(dtB)
     covar = np.diag(temperr**2)
-    return np.random.normal(temps, temperr), covar
+    return np.random.normal(temps, np.abs(temperr)), covar
 
 def cm21_globalT(nu, A=-0.2, nu0=80.0, dnu = 5.0):
     """
@@ -244,7 +244,7 @@ def foreground_gdsm_alm(nu, lmax=40, nside=None, map=False):
         multifreq = False
     
     #generate the map
-    gdsm_2016 = GlobalSkyModel2016(freq_unit='MHz', resolution='low')
+    gdsm_2016 = GlobalSkyModel2016(freq_unit='MHz', resolution='hi')
     gdsm_map = gdsm_2016.generate(nu)
     
     #degrade the foreground map to the size we want
@@ -270,7 +270,59 @@ def foreground_gdsm_alm(nu, lmax=40, nside=None, map=False):
     return map_real_alm.flatten()
 
 
+def foreground_gdsm_galcut_alm(nu, lmax=40, nside=None, map=False):
+    """
+    Calculate the vector of real alm for the 2016 GDSM evaluated
+    at the frequenc(y/ies) nu. Returns the alms in a flat array 
+    (alms(nu1), alms(nu2), ...). 
+    
+    If nside is given, the GDSM map is first up/downgraded to this nside.
+    This helps speed up conversion to spherical harmonics, but may lose 
+    information.
 
+    If map is True, also returns the alm represented as a series of
+    healpix maps. The resulting nside will match the nside argument,
+    or will be the same as the GDSM's low-resolution map.
+
+    This function cuts the galaxy out (setting values to the mean map value), 
+    and sets all negative temperatures to zero too.
+    """
+    #are we dealing with multiple frequencies or not
+    try:
+        len(nu)
+        multifreq = True
+    except:
+        multifreq = False
+    
+    #generate the map
+    gdsm_2016 = GlobalSkyModel2016(freq_unit='MHz', resolution='hi')
+    gdsm_map = gdsm_2016.generate(nu)
+
+    negs = np.where(gdsm_map < 0)
+    gdsm_map[negs] = 0
+    gdsm_map[int(len(gdsm_map)*0.45):int(len(gdsm_map)*0.55)] = np.mean(gdsm_map)
+    
+    #degrade the foreground map to the size we want
+    if nside is not None:
+        gdsm_map = healpy.pixelfunc.ud_grade(gdsm_map, nside_out=nside)
+    nside = healpy.npix2nside(np.shape(gdsm_map)[-1])
+
+    #convert to (real) alm, dealing with both multi and single freq cases
+    if multifreq:
+        map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gdsm_map]
+        map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
+    else:
+        map_alm = healpy.sphtfunc.map2alm(gdsm_map, lmax=lmax)
+        map_real_alm = RS.complex2RealALM(map_alm)
+
+    #convert the alm back to healpix maps
+    if map:
+        if multifreq:
+            reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
+        else:
+            reconstucted_map = healpy.sphtfunc.alm2map(map_alm, nside=nside)
+        return map_real_alm.flatten(), reconstucted_map
+    return map_real_alm.flatten()
 
 
 
