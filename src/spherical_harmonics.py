@@ -61,6 +61,17 @@ class RealSphericalHarmonics:
         """
         return l * (l+1) + m
 
+    def get_lmax(self, vsize):
+        """
+        Get lmax required for a given vector size.
+        """
+        lmax = np.sqrt(vsize) - 1
+        if abs(int(lmax)-lmax) > 0.00001:
+            err = "Invalid vector size! Does not correspond to any lmax"
+            raise ValueError(err)
+        return int(lmax)
+
+
     def get_lm(self, idx):
         """
         Find (l,m) from vector index
