@@ -239,13 +239,12 @@ def foreground_gdsm_alm(nu, lmax=40, nside=None, map=False):
     #are we dealing with multiple frequencies or not
     try:
         len(nu)
-        multifreq = True
     except:
-        multifreq = False
+        nu = [nu]
     
     #generate the map
     gdsm_2016 = GlobalSkyModel2016(freq_unit='MHz', resolution='hi')
-    gdsm_map = gdsm_2016.generate(nu)
+    gdsm_map = [gdsm_2016.generate(freq) for freq in nu]
     
     #degrade the foreground map to the size we want
     if nside is not None:
@@ -253,19 +252,12 @@ def foreground_gdsm_alm(nu, lmax=40, nside=None, map=False):
     nside = healpy.npix2nside(np.shape(gdsm_map)[-1])
 
     #convert to (real) alm, dealing with both multi and single freq cases
-    if multifreq:
-        map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gdsm_map]
-        map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
-    else:
-        map_alm = healpy.sphtfunc.map2alm(gdsm_map, lmax=lmax)
-        map_real_alm = RS.complex2RealALM(map_alm)
+    map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gdsm_map]
+    map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
 
     #convert the alm back to healpix maps
     if map:
-        if multifreq:
-            reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
-        else:
-            reconstucted_map = healpy.sphtfunc.alm2map(map_alm, nside=nside)
+        reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
         return map_real_alm.flatten(), reconstucted_map
     return map_real_alm.flatten()
 
@@ -353,12 +345,11 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     #are we dealing with multiple frequencies or not
     try:
         len(nu)
-        multifreq = True
     except:
-        multifreq = False
+        nu = [nu]
     
     #generate the map
-    gsma_map = (T_408 - T_CMB)*(nu/408)**(-indexes)
+    gsma_map = [(T_408 - T_CMB)*(freq/408)**(-indexes) for freq in nu]
     
     #degrade the foreground map to the size we want
     if nside is not None:
@@ -366,18 +357,11 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     nside = healpy.npix2nside(np.shape(gsma_map)[-1])
 
     #convert to (real) alm, dealing with both multi and single freq cases
-    if multifreq:
-        map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gsma_map]
-        map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
-    else:
-        map_alm = healpy.sphtfunc.map2alm(gsma_map, lmax=lmax)
-        map_real_alm = RS.complex2RealALM(map_alm)
+    map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gsma_map]
+    map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
 
     #convert the alm back to healpix maps
     if map:
-        if multifreq:
-            reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
-        else:
-            reconstucted_map = healpy.sphtfunc.alm2map(map_alm, nside=nside)
+        reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
         return map_real_alm.flatten(), reconstucted_map
     return map_real_alm.flatten()
