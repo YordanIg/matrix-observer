@@ -3,6 +3,7 @@ Fitting models onto reconstructed alm to separate the foreground alm and signal
 alm.
 """
 import numpy as np
+from numpy.linalg import inv
 from scipy.linalg import svd
 from scipy.optimize import minimize
 
@@ -76,21 +77,56 @@ def power_law_residuals(x, y):
     return x_log, residuals, fit_info
 
 
-def pca_regression(y, basis_mat, p_guess):
+def noisefree_linear_regression(y, mat_X):
     """
-    Given an (Npca, N) basis matrix, find the (Npca,) vector p which minimizes
-    the cost function:
-        a . basis_mat - y
-    where d is a vector of shape (N,).
-    
-    p_guess is the initual guess for the vector p.
+    Given an (N, Nmod) matrix X, find the (Nmod,) vector theta which 
+    minimizes the cost function:
+        (X . theta) - y
+    where y is a vector of shape (N,).
     """
-    assert np.shape(basis_mat)[0] == len(p_guess)
-    assert np.shape(basis_mat)[1] == len(y)
+    mat_W = inv( mat_X.T @ mat_X ) @ mat_X.T
+    return mat_W @ y
 
-    to_min = lambda a: np.sum((a @ basis_mat - y)**2)
-    res = minimize(to_min, x0=p_guess, method="Nelder-Mead", tol=1e-10)
-    if not res.success:
-        raise Exception("did not converge.")
-    return res.x
+
+def lin_pca_forward_mod(x, mat_X):
+    """
+    Given an (N, Nmod) matrix X, (Nmod,) and the parameters m, c, build a matrix
+    X' that linearises the model:
+        y = m x  +  c  +  m X . theta
+    into the form
+        y = X' . theta
+    where y is a vector of shape (N,).
+
+    Returns : X (N, Nmod+2)
+    """
+    N = len(x)
+    Nmod = np.shape(mat_X)[1]
+    assert np.shape(mat_X)[0] == N
+
+    # Linearize the problem into the form y = X' . theta
+    mat_X_new = np.zeros((N, Nmod+2))
+    mat_X_new[:,0] = x
+    mat_X_new[:,1] = [1]*N
+    mat_X_new[:,2:] = mat_X
+
+    return mat_X_new
+
+
+def lin_pca_regression(x, y, mat_X):
+    """
+    Given an (N, Nmod) matrix X, and a (N,) vector x, find the (Nmod,) vector 
+    theta and the parameters m, c which minimize the cost function:
+        (m x  +  c  +  m X . theta)  -  y
+    where y is a vector of shape (N,).
+
+    Returns : (m, c, theta_1, theta_2, ...)
+    """
+    N = len(x)
+    assert np.shape(mat_X)[0] == N
+    assert len(y) == N
+
+    # Linearize the problem into the form y = X' . theta
+    mat_X_new = lin_pca_forward_mod(x, mat_X)
+    return noisefree_linear_regression(y=y, mat_X=mat_X_new)
+
 
