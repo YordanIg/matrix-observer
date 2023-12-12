@@ -7,7 +7,7 @@ import src.coordinates as CO
 import src.spherical_harmonics as SH
 import src.beam_functions as BF
 
-def calc_summation_matrix(Ntau, Nt):
+def _calc_summation_matrix(Ntau, Nt):
     """
     Crude gain matrix to sum up Nt neighbouring time bins into
     courser Ntau time bins. i.e. Ntau < Nt
@@ -27,7 +27,7 @@ def calc_averaging_matrix(Ntau, Nt):
     Exploits this trick for dividing each row by its own normalisation
     https://stackoverflow.com/questions/19602187/numpy-divide-each-row-by-a-vector-element
     """
-    summation_matrix = calc_summation_matrix(Ntau, Nt)
+    summation_matrix = _calc_summation_matrix(Ntau, Nt)
 
     #normalise each row to get averaging matrix
     averaging_matrix = summation_matrix / np.sum(summation_matrix, axis=1)[:, None]
