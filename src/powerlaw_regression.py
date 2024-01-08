@@ -194,7 +194,8 @@ def fg_powerlawPCA_cm21mon_forward_model(nuarr, theta, pca_basis):
     of:
         amplitude, power law index, pca params, 21-cm params
     """
-    assert len(theta) == np.shape(pca_basis)[1] + 2 + 3
+    N21  = 3
+    assert len(theta) == np.shape(pca_basis)[1] + 2 + N21
     amplitude, slope = theta[:2]
     theta_pca = theta[2:-3]
     gauss_amp = theta[-3]
@@ -205,13 +206,18 @@ def fg_powerlawPCA_cm21mon_forward_model(nuarr, theta, pca_basis):
     return fg_part+cm21_part
 
 
-def fg_powerlawPCA_cm21mon_regression(nuarr, C0, pca_basis, bounds):
+def fg_powerlawPCA_cm21mon_regression(nuarr, C0, pca_basis, bounds, spread=1e-4):
     """
     Fit a power law + PCA and a gaussian trough to data. Returns an emcee 
     sampler that's been run.
     """
     Npca = np.shape(pca_basis)[1]
-    to_max = lambda theta: -np.sum((C0 - fg_powerlawPCA_cm21mon_forward_model(nuarr, theta, pca_basis))**2)
+    
+    def to_max(theta):
+        for th, bn in zip(theta, bounds):
+            if th < bn[1] or th > bn[0]:
+                return -np.inf
+            return -np.sum((C0 - fg_powerlawPCA_cm21mon_forward_model(nuarr, theta, pca_basis))**2)
 
     x0 = [np.exp(40), -5]
     x0 += [1e-4]*Npca
@@ -219,10 +225,11 @@ def fg_powerlawPCA_cm21mon_regression(nuarr, C0, pca_basis, bounds):
     nwalkers = 16
     ndim = 2 + Npca + 3
 
-    pos = np.array([np.random.uniform(*bound, size=nwalkers) for bound in bounds])
-    pos = pos.T
+    pos = np.array([0.5*(bound[0]+bound[1]) for bound in bounds])
+    pos = pos*(1 + spread*np.random.randn(nwalkers, ndim))
 
-    print(np.shape(pos))
+
+    print(pos)
     sampler = EnsembleSampler(nwalkers=nwalkers, ndim=ndim, log_prob_fn=to_max)
     sampler.run_mcmc(pos, 100000, progress=True)
     return sampler
