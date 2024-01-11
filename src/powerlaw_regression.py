@@ -181,7 +181,6 @@ def fg_powerlawPCA_regression(nuarr, C0, pca_basis, bounds):
     pos = np.array([np.random.uniform(*bound, size=nwalkers) for bound in bounds])
     pos = pos.T
 
-    print(np.shape(pos))
     sampler = EnsembleSampler(nwalkers=nwalkers, ndim=ndim, log_prob_fn=to_max)
     sampler.run_mcmc(pos, 10000, progress=True)
     return sampler
@@ -228,9 +227,71 @@ def fg_powerlawPCA_cm21mon_regression(nuarr, C0, pca_basis, bounds, spread=1e-4)
     pos = np.array([0.5*(bound[0]+bound[1]) for bound in bounds])
     pos = pos*(1 + spread*np.random.randn(nwalkers, ndim))
 
-
-    print(pos)
     sampler = EnsembleSampler(nwalkers=nwalkers, ndim=ndim, log_prob_fn=to_max)
     sampler.run_mcmc(pos, 100000, progress=True)
     return sampler
 
+
+def fg_powerlaw_forward_model(nuarr, theta):
+    if len(theta) < 2:
+        raise ValueError('theta must be at least length 2.')
+    A, slope = theta[:2]
+    zetas    = theta[2:]
+    exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
+    return A*(nuarr/60)**(slope) * np.exp(np.sum(exponent, 0))
+
+
+def fg_powerlaw_cm21mon_forward_model(nuarr, theta):
+    if len(theta) < 2:
+        raise ValueError('theta must be at least length 2.')
+    A, slope = theta[:2]
+    zetas    = theta[2:-3]
+    gauss_amp = theta[-3]
+    gauss_cent = theta[-2]
+    gauss_width = theta[-1]
+    exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
+    cm21_part = cm21_globalT(nuarr, gauss_amp, gauss_cent, gauss_width)
+    return A*(nuarr/60)**(slope) * np.exp(np.sum(exponent, 0)) + cm21_part
+
+
+def log_likelihood(theta, nuarr, y, yerr, model):
+    """
+    Compute the Gaussian log-likelihood, given a model(nuarr, theta) and data y
+    with errors yerr.
+    """
+    y_model = model(nuarr, theta)
+    chi2 = (y - y_model)**2 / (yerr**2)
+    return np.sum(-chi2 / 2)
+
+
+def log_prior(theta, prior_range):
+    """
+    Log Prior probability
+
+        log(prior(theta))
+
+        This handles an unnormalised uniform prior
+        within the rectangular bounds given by prior_range.
+
+        inputs:
+        theta - N array of parameter values
+        prior_range - [N,2] array of prior ranges
+        i.e. = [[lower1, upper1], ...]
+
+        Returns 0 if theta in prior_range and -inf otherwise
+    """
+
+    lower =  theta > prior_range[:,0]
+    upper = theta < prior_range[:,1]
+    in_prior_range = all(lower & upper)
+
+    #return prior value
+    if in_prior_range:
+        return 0.0
+    return -np.inf
+
+def log_posterior(theta, x, y, yerr, model, prior_range):
+    lp = log_prior(theta, prior_range)
+    if np.isfinite(lp):
+        lp += log_likelihood(theta, x, y, yerr, model)
+    return lp
