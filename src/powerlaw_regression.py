@@ -158,8 +158,14 @@ def fg_powerlawPCA_forward_model(nuarr, theta_fg, pca_basis):
     basis matrix pca_basis. The vector theta_fg consists of:
         amplitude, power law index, pca params
     """
-    assert len(nuarr) == np.shape(pca_basis)[0]
-    assert len(theta_fg) == np.shape(pca_basis)[1]+2
+    if len(nuarr) != np.shape(pca_basis)[0]:
+        err = "len of nuarr should match nrows of PCA basis, but they are " \
+            + f"{len(nuarr)} and {np.shape(pca_basis)[0]} respectively."
+        raise ValueError(err)
+    if len(theta_fg) != np.shape(pca_basis)[1]+2:
+        err = "len of theta_fg should match ncol+2 of PCA basis, but they are" \
+            + f"{len(theta_fg)} and {np.shape(pca_basis)[1]+2} respectively."
+        raise ValueError(err)
     amplitude, slope = theta_fg[:2]
     theta_pca = theta_fg[2:]
     return amplitude * (nuarr/60) **(slope) * np.exp(slope* pca_basis@theta_pca )
