@@ -7,7 +7,7 @@ from numpy.linalg import inv
 from scipy.linalg import svd
 from scipy.optimize import minimize
 from emcee import EnsembleSampler
-from src.sky_models import cm21_globalT
+from src.sky_models import cm21_globalT, cm21_dipoleT
 
 
 def pca(arr, N):
@@ -248,8 +248,8 @@ def fg_powerlaw_forward_model(nuarr, theta):
 
 
 def fg_powerlaw_cm21mon_forward_model(nuarr, theta):
-    if len(theta) < 2:
-        raise ValueError('theta must be at least length 2.')
+    if len(theta) < 2+3:
+        raise ValueError('theta must be at least length 5.')
     A, slope = theta[:2]
     zetas    = theta[2:-3]
     gauss_amp = theta[-3]
@@ -257,6 +257,21 @@ def fg_powerlaw_cm21mon_forward_model(nuarr, theta):
     gauss_width = theta[-1]
     exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
     cm21_part = cm21_globalT(nuarr, gauss_amp, gauss_cent, gauss_width)
+    return A*(nuarr/60)**(slope) * np.exp(np.sum(exponent, 0)) + cm21_part
+
+
+def fg_powerlaw_cm21mondip_forward_model(nuarr, theta):
+    if len(theta) < 2+3+1:
+        raise ValueError('theta must be at least length 6.')
+    A, slope = theta[:2]
+    zetas    = theta[2:-4]
+    gauss_amp = theta[-4]
+    gauss_cent = theta[-3]
+    gauss_width = theta[-2]
+    cm21dip_amp = theta[-1]
+    exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
+    cm21_mon, cm21_dip = cm21_dipoleT(nuarr, gauss_amp, gauss_cent, gauss_width, cm21dip_amp)
+    cm21_part = cm21_mon + cm21_dip
     return A*(nuarr/60)**(slope) * np.exp(np.sum(exponent, 0)) + cm21_part
 
 
