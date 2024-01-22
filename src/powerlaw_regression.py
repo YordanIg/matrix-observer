@@ -238,6 +238,25 @@ def fg_powerlawPCA_cm21mon_regression(nuarr, C0, pca_basis, bounds, spread=1e-4)
     return sampler
 
 
+def fg_powerlawPCA_cm21mondip_forward_model(nuarr, theta, pca_basis):
+    """
+    Forward model the power law + PCA foreground model and the 21-cm gaussian
+    monopole and dipole, given an (Nfreq, Npca) basis matrix pca_basis. The 
+    vector theta_fg consists of:
+        amplitude, power law index, pca params, 21-cm params
+    """
+    N21  = 3
+    assert len(theta) == np.shape(pca_basis)[1] + 2 + N21
+    amplitude, slope = theta[:2]
+    theta_pca = theta[2:-3]
+    gauss_amp = theta[-3]
+    gauss_cent = theta[-2]
+    gauss_width = theta[-1]
+    fg_part = amplitude * (nuarr/60) **(slope) * np.exp(slope* pca_basis@theta_pca )
+    cm21_part = cm21_globalT(nuarr, gauss_amp, gauss_cent, gauss_width)
+    return fg_part+cm21_part
+
+
 def fg_powerlaw_forward_model(nuarr, theta):
     if len(theta) < 2:
         raise ValueError('theta must be at least length 2.')
@@ -260,7 +279,7 @@ def fg_powerlaw_cm21mon_forward_model(nuarr, theta):
     return A*(nuarr/60)**(slope) * np.exp(np.sum(exponent, 0)) + cm21_part
 
 
-def fg_powerlaw_cm21mondip_forward_model(nuarr, theta):
+def fg_powerlaw_cm21dip_forward_model(nuarr, theta):
     if len(theta) < 2+3+1:
         raise ValueError('theta must be at least length 6.')
     A, slope = theta[:2]
@@ -270,9 +289,8 @@ def fg_powerlaw_cm21mondip_forward_model(nuarr, theta):
     gauss_width = theta[-2]
     cm21dip_amp = theta[-1]
     exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
-    cm21_mon, cm21_dip = cm21_dipoleT(nuarr, gauss_amp, gauss_cent, gauss_width, cm21dip_amp)
-    cm21_part = cm21_mon + cm21_dip
-    return A*(nuarr/60)**(slope) * np.exp(np.sum(exponent, 0)) + cm21_part
+    _, cm21_dip = cm21_dipoleT(nuarr, gauss_amp, gauss_cent, gauss_width, cm21dip_amp)
+    return A*(nuarr/60)**(slope) * np.exp(np.sum(exponent, 0)) + cm21_dip
 
 
 def log_likelihood(theta, nuarr, y, yerr, model):
