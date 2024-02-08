@@ -5,7 +5,8 @@ import src.spherical_harmonics as SH
 
 RS = SH.RealSphericalHarmonics()
 
-def compare_estimate_to_reality(a_reality, a_estimate, ylm_mat=None, nside=None):
+def compare_estimate_to_reality(a_reality, a_estimate, ylm_mat=None, nside=None,
+                                mat_P=None):
     """
     Plot various figures comparing the resonstructed map to the original map,
     and the residuals of the estimated alm.
@@ -20,7 +21,10 @@ def compare_estimate_to_reality(a_reality, a_estimate, ylm_mat=None, nside=None)
         a_estimate too. If none is passed, one will be created.
     nside
         If a Ylm matrix is being created, must pass a value for its nside. If 
-        a Ylm matrix is being passed, the nside argument is ignored.    
+        a Ylm matrix is being passed, the nside argument is ignored.
+    mat_P
+        If the observation matrix is passed, plots the pointing directions in
+        the sky reconstruction plot.
     """
     try:
         lmax = RS.get_lmax(len(a_reality))
@@ -36,6 +40,7 @@ def compare_estimate_to_reality(a_reality, a_estimate, ylm_mat=None, nside=None)
         if nside is None:
             raise ValueError("if Ylm matrix isn't passed, nside should be.")
         ylm_mat = SH.calc_spherical_harmonic_matrix(nside=nside, lmax=lmax)
+    nside = hp.npix2nside(len(ylm_mat[:,0]))
     
     no_modes = len(a_estimate)
     ylm_mat_mod = ylm_mat[:, :no_modes]
@@ -48,6 +53,16 @@ def compare_estimate_to_reality(a_reality, a_estimate, ylm_mat=None, nside=None)
 
     hp.mollview(ylm_mat_mod@a_estimate - ylm_mat@a_reality, 
                 title=f"lmax={lmax}, lmod={lmod} reconstructed map residuals")
+    plt.show()
+
+    hp.mollview(np.abs(ylm_mat_mod@a_estimate - ylm_mat@a_reality), 
+                title=f"lmax={lmax}, lmod={lmod} reconstructed map abs(residuals)")
+    
+    if mat_P is not None:
+        # Use np.argmax to find the column index of the first occurrence of 1 in each row.
+        indxs = np.argmax(mat_P, axis=1).tolist()
+        thetas, phis = hp.pix2ang(nside=nside, ipix=indxs)
+        hp.projscatter(thetas, phis, alpha=0.4, s=3, color='r')
     plt.show()
 
     mode_residuals = abs(a_estimate[:no_modes] - a_reality[:no_modes])
@@ -82,25 +97,27 @@ def compare_reconstructions(a_reality, *a_estimates, labels=None, fmts=None, ylm
         residuals of the reconstructed temperature maps for each of the
         estimates and produces a bar plot.
     """
-    no_modes = min([len(a) for a in a_estimates])
-    lmod = RS.get_lmax(no_modes)
-    lmod_arr = list(range(0, lmod+1, 2))
-    lmod_idx = [RS.get_idx(l=l, m=-l) for l in lmod_arr]
+    no_modes_list = [len(a) for a in a_estimates]
+    max_modes = np.max(no_modes_list)
+    lmod_max = RS.get_lmax(max_modes)
+    lmod_max_arr = list(range(0, lmod_max+1, 2))
+    lmod_max_idx = [RS.get_idx(l=l, m=-l) for l in lmod_max_arr]
 
     if labels is None:
         labels = ['']*len(a_estimates)
     if fmts is None:
         fmts = ['.']*len(a_estimates)
     
-    for a_estimate, label, fmt in zip(a_estimates, labels, fmts):
+    for a_estimate, label, fmt, no_modes in zip(a_estimates, labels, fmts, no_modes_list):
         mode_residuals = abs(a_estimate[:no_modes] - a_reality[:no_modes])
         mode_residuals /= abs(a_reality[:no_modes])
         plt.semilogy(range(no_modes), mode_residuals, fmt, label=label)
     plt.axhline(y=1, color='k', alpha=0.7)
     plt.legend()
-    plt.xticks(ticks=lmod_idx, labels=lmod_arr)
+    plt.xticks(ticks=lmod_max_idx, labels=lmod_max_arr)
     plt.xlabel("spherical harmonic l number")
     plt.ylabel("|alm estimated - alm fiducial|/|alm fiducial|")
+    plt.ylim(1e-7, 1e+5)
     plt.show()
 
     # Make a bar chart comparing the reconstruction error in rms temperature.
