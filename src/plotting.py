@@ -77,7 +77,8 @@ def compare_estimate_to_reality(a_reality, a_estimate, ylm_mat=None, nside=None,
     plt.show()
     
 
-def compare_reconstructions(a_reality, *a_estimates, labels=None, fmts=None, ylm_mat=None):
+def compare_reconstructions(a_reality, *a_estimates, labels=None, fmts=None, ylm_mat=None,
+                            return_comparisons_fig=False):
     """
     Compare the errors in reconstructions of the original alm vector by plotting
     the residuals of the vectors and optionally a bar chart of the different temperature
@@ -96,6 +97,9 @@ def compare_reconstructions(a_reality, *a_estimates, labels=None, fmts=None, ylm
         ylm matrix corresponding to a_reality. If passed, calculates the
         residuals of the reconstructed temperature maps for each of the
         estimates and produces a bar plot.
+    return_comparisons_fig : bool
+        If True, will return the figure comparing the alm to one another and to
+        the fiducial alm.
     """
     no_modes_list = [len(a) for a in a_estimates]
     max_modes = np.max(no_modes_list)
@@ -108,17 +112,21 @@ def compare_reconstructions(a_reality, *a_estimates, labels=None, fmts=None, ylm
     if fmts is None:
         fmts = ['.']*len(a_estimates)
     
+    fig, ax = plt.subplots(1, 1)
     for a_estimate, label, fmt, no_modes in zip(a_estimates, labels, fmts, no_modes_list):
         mode_residuals = abs(a_estimate[:no_modes] - a_reality[:no_modes])
         mode_residuals /= abs(a_reality[:no_modes])
-        plt.semilogy(range(no_modes), mode_residuals, fmt, label=label)
-    plt.axhline(y=1, color='k', alpha=0.7)
-    plt.legend()
-    plt.xticks(ticks=lmod_max_idx, labels=lmod_max_arr)
-    plt.xlabel("spherical harmonic l number")
-    plt.ylabel("|alm estimated - alm fiducial|/|alm fiducial|")
-    plt.ylim(1e-7, 1e+5)
-    plt.show()
+        ax.semilogy(range(no_modes), mode_residuals, fmt, label=label)
+    ax.axhline(y=1, color='k', alpha=0.7)
+    ax.legend()
+    ax.set_xticks(ticks=lmod_max_idx, labels=lmod_max_arr)
+    ax.set_xlabel("spherical harmonic l number")
+    ax.set_ylabel("|alm estimated - alm fiducial|/|alm fiducial|")
+    ax.set_ylim(1e-7, 1e+5)
+    if return_comparisons_fig:
+        return fig
+    fig.show()
+    plt.close('all')
 
     # Make a bar chart comparing the reconstruction error in rms temperature.
     if ylm_mat is not None:
