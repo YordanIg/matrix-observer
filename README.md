@@ -116,9 +116,9 @@ timestream_noisy, mat_N = SM.add_noise(timestream_data, dnu=1, Ntau=Ntau,
 ### BlockMat & BlockVec
 
 Wanted code that - 
-    1. Is faster than using numpy as it doesn't store all the zeros involved.
-    2. Readily works for rectangular blocks (as long as the blocks are all the
-       same shape).
+1. Is faster than using numpy as it doesn't store all the zeros involved.
+2. Readily works for rectangular blocks (as long as the blocks are all the
+same shape).
 
 Can construct block matrices either by passing a list of identically-shaped 
 blocks:
