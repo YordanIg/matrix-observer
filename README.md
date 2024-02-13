@@ -55,6 +55,10 @@ Useful plotting functions.
 `powerlaw_regression.py`:
 Implementing the powerlaw x PCA foreground/21-cm separation method.
 
+`blockmat.py`:
+Classes to deal with the manipulation and operations of large block diagonal
+matrices and vectors.
+
 
 ## Usage
 
@@ -107,3 +111,83 @@ timestream_data = mat_A @ gsma_alm
 timestream_noisy, mat_N = SM.add_noise(timestream_data, dnu=1, Ntau=Ntau, 
             t_int=None, seed=123)
 ```
+
+
+### BlockMat & BlockVec
+
+Wanted code that - 
+    1. Is faster than using numpy as it doesn't store all the zeros involved.
+    2. Readily works for rectangular blocks (as long as the blocks are all the
+       same shape).
+
+Can construct block matrices either by passing a list of identically-shaped 
+blocks:
+
+```
+mat = [
+    [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+        [1, 2, 3],
+    ],
+    [
+        [11, 12, 13],
+        [14, 15, 16],
+        [17, 18, 19],
+        [11, 12, 13],
+    ], ...
+]
+
+block_mat = BlockMatrix(mat=mat)
+```
+
+then `block_mat.matrix` returns
+
+```
+[
+    [1, 2, 3,  0,  0,  0, ...],
+    [4, 5, 6,  0,  0,  0, ...],
+    [7, 8, 9,  0,  0,  0, ...],
+    [1, 2, 3,  0,  0,  0, ...],
+    [0, 0, 0, 11, 12, 13, ...],
+    [0, 0, 0, 14, 15, 16, ...],
+    [0, 0, 0, 17, 18, 19, ...],
+    [0, 0, 0, 11, 12, 13, ...],
+    ...
+]
+```
+
+or by passing a single block and specifying the number of desired repeats:
+
+```
+mat = [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9],
+    [1, 2, 3]
+]
+
+block_mat = BlockMatrix(mat=mat, nblock=12)
+```
+
+Can construct block vectors by passing:
+1. A full block vector and specifying the number of blocks it contains.
+2. A list of vector blocks.
+3. A list of column vectors of blocks.
+
+The full numpy representation of the vector is returned using 
+`BlockVector.vector`, while a list of vector blocks is returned with 
+`BlockVector.vector_blocks`.
+
+The real purpose is of course to perform operations on these objects. This is 
+done in the standard numpy-esque way, and is defined for vectors and matrices:
+
+```
+a@b
+a+b
+a-b
+```
+
+If the result is a vector, a BlockVector is returned. If the result is a matrix,
+a BlockMatrix is returned.
