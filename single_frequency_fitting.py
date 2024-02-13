@@ -34,7 +34,7 @@ def calc_full_unmodelled_mode_matrix(lmod, lmax, nside, foreground_power_spec, b
     return binpoint_mat@val@(binpoint_mat.T)
 
 
-def reconstruct_obs(noise=True, obs_strat="nontriv", which_fg='gsma', missing_modes=False):
+def reconstruct_obs(noise=True, obs_strat="nontriv", which_fg='gsma', missing_modes=False, extra_tag='', **kwargs):
     """
     Reconstruct the single-frequency alm vector using maximum-likelihood
     estimation for a Gaussian random field with the same power spectrum as the
@@ -44,22 +44,33 @@ def reconstruct_obs(noise=True, obs_strat="nontriv", which_fg='gsma', missing_mo
     each time the function is run it starts with the same seed, so the results
     won't change between runs.
     """
-    lmax     = 32
-    lmod_arr = [20, 15, 11, 8]
-    nside    = 16
-    npix     = hp.nside2npix(nside)
-    nu       = 60
+    default_args = {
+        'lmax'     : 32,
+        'lmod_arr' : [20, 15, 11, 8],
+        'nside'    : 16,
+        'nu'       : 60,
+        'lat_arr'  : np.linspace(-89, 89, 19)
+    }
+    fargs = {}
+
+    for arg in default_args:
+        if arg in kwargs:
+            fargs[arg] = kwargs[arg]
+        else:
+            fargs[arg] = default_args[arg]
+
+    npix = hp.nside2npix(fargs['nside'])
 
     # Set up the foreground alm models.
     if which_fg == 'gauss':
         # Generate a Gaussian random field with same power spectrum as GSMA.
-        gsma_alm = SM.foreground_gsma_alm(nu=nu)
+        gsma_alm = SM.foreground_gsma_alm(nu=fargs['nu'])
         gsma_complex_alm = RS.real2ComplexALM(gsma_alm)
         fg_cl = hp.alm2cl(gsma_complex_alm)
-        fg_complex_alm = hp.synalm(fg_cl, lmax=lmax)
+        fg_complex_alm = hp.synalm(fg_cl, lmax=fargs['lmax'])
         fg_alm = RS.complex2RealALM(fg_complex_alm)
     if which_fg == 'gsma':
-        fg_alm = SM.foreground_gsma_alm(nu=nu, lmax=lmax)
+        fg_alm = SM.foreground_gsma_alm(nu=fargs['nu'], lmax=fargs['lmax'])
         fg_complex_alm = RS.real2ComplexALM(fg_alm)
         fg_cl = hp.alm2cl(fg_complex_alm)
 
@@ -67,10 +78,10 @@ def reconstruct_obs(noise=True, obs_strat="nontriv", which_fg='gsma', missing_mo
     narrow_cosbeam = lambda x : BF.beam_cos(x, theta0=0.8)
     if obs_strat == 'nontriv':
         times = np.linspace(0, 24, 40, endpoint=False)
-        lats = np.linspace(-89, 89, 19)
-        mat_A_fm, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside=nside, lmax=lmax, lats=lats, beam_use=narrow_cosbeam, times=times, return_mat=True)
+        lats = fargs['lat_arr']
+        mat_A_fm, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside=fargs['nside'], lmax=fargs['lmax'], lats=lats, beam_use=narrow_cosbeam, times=times, return_mat=True)
     elif obs_strat == 'triv':
-        mat_A_fm, (mat_G, mat_Y, mat_B) = FM.calc_observation_matrix_all_pix(nside=nside, lmax=lmax, Ntau=npix, Nt=npix, beam_use=narrow_cosbeam, return_mat=True)
+        mat_A_fm, (mat_G, mat_Y, mat_B) = FM.calc_observation_matrix_all_pix(nside=fargs['nside'], lmax=fargs['lmax'], Ntau=npix, Nt=npix, beam_use=narrow_cosbeam, return_mat=True)
         mat_P = np.diag([1]*npix)
     else:
         raise ValueError("invalid observation strategy choice.")
@@ -85,10 +96,10 @@ def reconstruct_obs(noise=True, obs_strat="nontriv", which_fg='gsma', missing_mo
     mat_W_arr      = []
     cov_arr        = []
     a_estimate_arr = []
-    for lmod in lmod_arr:
+    for lmod in fargs['lmod_arr']:
         if obs_strat == 'nontriv':
             mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan(
-                nside=nside, 
+                nside=fargs['nside'], 
                 lmax=lmod, 
                 lats=lats, 
                 beam_use=narrow_cosbeam, 
@@ -96,10 +107,10 @@ def reconstruct_obs(noise=True, obs_strat="nontriv", which_fg='gsma', missing_mo
                 return_mat=False
             )
         elif obs_strat == 'triv':
-            mat_A_mod = FM.calc_observation_matrix_all_pix(nside=nside, lmax=lmod, Ntau=npix, Nt=npix, beam_use=narrow_cosbeam)
+            mat_A_mod = FM.calc_observation_matrix_all_pix(nside=fargs['nside'], lmax=lmod, Ntau=npix, Nt=npix, beam_use=narrow_cosbeam)
 
         if missing_modes:
-            mat_S = calc_full_unmodelled_mode_matrix(lmod=lmod, lmax=lmax, nside=nside, foreground_power_spec=fg_cl, beam_mat=mat_B, binning_mat=mat_G, pointing_mat=mat_P)
+            mat_S = calc_full_unmodelled_mode_matrix(lmod=lmod, lmax=fargs['lmax'], nside=fargs['nside'], foreground_power_spec=fg_cl, beam_mat=mat_B, binning_mat=mat_G, pointing_mat=mat_P)
             full_noise_covar = noise_covar + mat_S
         else:
             full_noise_covar = noise_covar
@@ -134,8 +145,8 @@ def reconstruct_obs(noise=True, obs_strat="nontriv", which_fg='gsma', missing_mo
     elif not missing_modes:
         mmmtag = 'uncorr'
 
-    tag  = f"monofreq_reconstruct_{fgtag}_{obstag}_{noisetag}_{mmmtag}.pdf"
-    labs = [f"lmod={lmod}" for lmod in lmod_arr]
+    tag  = f"monofreq_reconstruct_{fgtag}_{obstag}_{noisetag}_{mmmtag}_{extra_tag}.pdf"
+    labs = [f"lmod={lmod}" for lmod in fargs['lmod_arr']]
     fmts = ['.', 'x', 'o', '-', '.', '.', '.', '.', '.', '.']
 
     fig = PL.compare_reconstructions(fg_alm, *a_estimate_arr, labels=labs, 
