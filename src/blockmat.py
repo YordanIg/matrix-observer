@@ -110,6 +110,14 @@ class BlockMatrix:
             b1 = self.block_shape[1]
             full_mat[n*b0:(n+1)*b0, n*b1:(n+1)*b1] = self._matrix[n]
         return full_mat
+    
+    @property
+    def block(self):
+        """
+        Return the list of matrix blocks. Can be used to easily access the nth
+        block of the matrix.
+        """
+        return self._matrix
 
 
 class BlockVector(BlockMatrix):
@@ -192,8 +200,9 @@ class BlockVector(BlockMatrix):
         return self._matrix.flatten()
     
     @property
-    def vector_blocks(self):
+    def block(self):
         """
-        Return a list of vector blocks.
+        Return the list of vector blocks. Can be used to easily access the nth
+        block of the vector.
         """
         return np.split(self.vector, self.nblock)
