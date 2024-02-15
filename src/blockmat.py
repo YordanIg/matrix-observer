@@ -8,7 +8,7 @@ matrices and vectors in a way that:
 import numpy as np
 
 class BlockMatrix:
-    def __init__(self, mat, nblock=None):
+    def __init__(self, mat, mode='block', nblock=None):
         """
         Representation of a block-diagonal matrix with off-diagonal zeros. The 
         blocks need not be square, but must have the same dimension as one
@@ -21,13 +21,19 @@ class BlockMatrix:
             number of repeats n, or pass a list of the individual blocks to 
             repeat (3D), in which case the 2D blocks must each have the same
             shape.
+        mode : str, optional
+            If a 2D mat is passed, 'as-is' specifies the matrix as being
+            complete, while 'block' specifies it as corresponding to a single
+            block of the desired matrix. If a 3D matrix is passed, mode is
+            ignored.
         nblock : int, optional
             Specifies the number of repeats if a single block is passed. If a 
             3D mat is passed, this argument is ignored.
         """
         # Check validity of inputs
         input_mat_shape = np.shape(mat)
-        mat = np.array(mat)
+        if not isinstance(mat, np.ndarray):
+            raise ValueError("must pass mat as a numpy array.")
 
         if len(input_mat_shape) == 3:
             self.block_shape = np.shape(mat[0])
@@ -35,13 +41,22 @@ class BlockMatrix:
                 if np.shape(block) != self.block_shape:
                     raise ValueError("shape of matrix blocks must be consistent.")
             nblock = input_mat_shape[0]
-                
+
         elif len(input_mat_shape) == 2:
             if nblock is None:
-                raise ValueError("must specify nblock when inputting a single matrix block.")
-            self.block_shape = input_mat_shape
-            mat = np.array([mat for _ in range(nblock)])
-        
+                raise ValueError("must specify nblock when inputting either a single matrix block or the whole matrix.")
+            if mode == 'block':
+
+                self.block_shape = input_mat_shape
+                mat = np.array([mat for _ in range(nblock)])
+            elif mode == 'as-is':
+                if input_mat_shape[0]%nblock or input_mat_shape[1]%nblock:
+                    raise ValueError("nblock must divide length of as-is vector.")
+                self.block_shape = (int(input_mat_shape[0]/nblock), int(input_mat_shape[1]/nblock))
+                bs0, bs1 = self.block_shape
+                mat = [mat[n*bs0:(n+1)*bs0,n*bs1:(n+1)*bs1] for n in range(nblock)]
+                mat = np.array(mat)
+
         else:
             raise ValueError("mat must be either 2D or 3D.")
         
@@ -98,6 +113,23 @@ class BlockMatrix:
         for self_block, other_block in zip(self._matrix, other._matrix):
             difference.append(self_block-other_block)
         return BlockMatrix(sum)
+    
+    def __mul__(self, other):
+        """
+        Define multiplication between Block matrices and floats/integers.
+        """
+        new_mat = self.block * other
+        return BlockMatrix(new_mat, nblock=self.nblock)
+    
+    def __rmul__(self, other):
+        return self.__mul__(other)
+    
+    def __truediv__(self, other):
+        """
+        Define division between Block matrices and floats/integers.
+        """
+        new_mat = self.block / other
+        return BlockMatrix(new_mat, nblock=self.nblock)
     
     @property
     def matrix(self):
@@ -192,6 +224,35 @@ class BlockVector(BlockMatrix):
     def __repr__(self):
         return f"({(self.block_len)},) x {self.nblock} BlockVector"
 
+    def __add__(self, other):
+        """
+        Return a BlockVector representation of the sum of self and other.
+        """
+        # Check dimensionality is right.
+        if not isinstance(other, BlockVector):
+            raise TypeError(f"unsupported operand type for +: 'BlockVector' and '{type(other)}'.")
+        if self.mat_shape != other.mat_shape:
+            raise ValueError("incompatible vector shapes.")
+        
+        sum = []
+        for self_block, other_block in zip(self._matrix, other._matrix):
+            sum.append(self_block+other_block)
+        return BlockVector(sum)
+    
+    def __truediv__(self, other):
+        """
+        Define division between Block vectors and floats/integers.
+        """
+        new_vec = self.block / other
+        return BlockVector(new_vec)
+    
+    def __pow__(self, other):
+        """
+        Define raising to the power between Block vectors and floats/integers.
+        """
+        new_vec = self.block ** other
+        return BlockVector(new_vec)
+    
     @property
     def vector(self):
         """
@@ -205,4 +266,4 @@ class BlockVector(BlockMatrix):
         Return the list of vector blocks. Can be used to easily access the nth
         block of the vector.
         """
-        return np.split(self.vector, self.nblock)
+        return np.array(np.split(self.vector, self.nblock))
