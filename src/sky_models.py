@@ -11,6 +11,7 @@ import healpy
 import numpy as np
 from pygdsm import GlobalSkyModel2016
 
+from src.blockmat import BlockMatrix, BlockVector
 from src.spherical_harmonics import RealSphericalHarmonics
 
 RS = RealSphericalHarmonics()
@@ -31,8 +32,17 @@ def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
     if t_int is not None:
         dt  = 3600*t_int/(Ntau)  #interval in seconds
         dtB = dt*1e+6*dnu        #convert interval to Hertz and multiply by B
-    
+
+        
     temperr = temps/np.sqrt(dtB)
+    
+    if isinstance(temps, BlockVector):
+        print("in addnoise isinstance BlockVector")
+        covar = BlockMatrix(np.diag(temperr.vector**2), mode='as-is', nblock=temps.nblock)
+        print("in addnoise covar computed")
+        noisy_temps = np.random.normal(temps.vector, np.abs(temperr.vector))
+        return BlockVector(noisy_temps, mode='as-is', nblock=temps.nblock), covar
+
     covar = np.diag(temperr**2)
     return np.random.normal(temps, np.abs(temperr)), covar
 
