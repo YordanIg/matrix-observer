@@ -37,9 +37,7 @@ def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
     temperr = temps/np.sqrt(dtB)
     
     if isinstance(temps, BlockVector):
-        print("in addnoise isinstance BlockVector")
         covar = BlockMatrix(np.diag(temperr.vector**2), mode='as-is', nblock=temps.nblock)
-        print("in addnoise covar computed")
         noisy_temps = np.random.normal(temps.vector, np.abs(temperr.vector))
         return BlockVector(noisy_temps, mode='as-is', nblock=temps.nblock), covar
 
@@ -327,31 +325,8 @@ def foreground_gdsm_galcut_alm(nu, lmax=40, nside=None, map=False):
     return map_real_alm.flatten()
 
 
-def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
-    '''
-    An extrapolation of the GDSM sky back to the 21-cm frequency range as used
-    in Anstey et. al. 2021 (arXiv:2010.09644).
-
-    Calculate the vector of real alm for the GSMA evaluated
-    at the frequenc(y/ies) nu. Returns the alms in a flat array 
-    (alms(nu1), alms(nu2), ...). 
-    
-    If nside is given, the GSMA map is first up/downgraded to this nside.
-    This helps speed up conversion to spherical harmonics, but may lose 
-    information.
-
-    If map is True, also returns the alm represented as a series of
-    healpix maps. The resulting nside will match the nside argument,
-    or will be equal to 512, the native resolution of the GSMA.
-    '''
-    #load the gsma indexes
+def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False):
     T_CMB = 2.725
-    try:
-        T_408, indexes = np.load('/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes.npy')
-    except:
-        raise Exception("Indexes for the Anstey sky have not been "\
-                        +"generated.")
-
     #are we dealing with multiple frequencies or not
     try:
         len(nu)
@@ -375,3 +350,56 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
         reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
         return map_real_alm.flatten(), reconstucted_map
     return map_real_alm.flatten()
+
+def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
+    '''
+    An extrapolation of the GDSM sky back to the 21-cm frequency range as used
+    in Anstey et. al. 2021 (arXiv:2010.09644).
+
+    Calculate the vector of real alm for the GSMA evaluated
+    at the frequenc(y/ies) nu. Returns the alms in a flat array 
+    (alms(nu1), alms(nu2), ...). 
+    
+    If nside is given, the GSMA map is first up/downgraded to this nside.
+    This helps speed up conversion to spherical harmonics, but may lose 
+    information.
+
+    If map is True, also returns the alm represented as a series of
+    healpix maps. The resulting nside will match the nside argument,
+    or will be equal to 512, the native resolution of the GSMA.
+    '''
+    #load the gsma indexes
+    try:
+        T_408, indexes = np.load('/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes.npy')
+    except:
+        raise Exception("Indexes for the Anstey sky have not been "\
+                        +"generated.")
+    return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
+                                nside=nside, map=map)
+
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False):
+    '''
+    An extrapolation of the GDSM sky back to the 21-cm frequency range as used
+    in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
+    strategy, but generates an nside=16 map instead.
+
+    Calculate the vector of real alm for the GSMA evaluated
+    at the frequenc(y/ies) nu. Returns the alms in a flat array 
+    (alms(nu1), alms(nu2), ...). 
+    
+    If nside is given, the GSMA map is first up/downgraded to this nside.
+    This helps speed up conversion to spherical harmonics, but may lose 
+    information.
+
+    If map is True, also returns the alm represented as a series of
+    healpix maps. The resulting nside will match the nside argument,
+    or will be equal to 16, the native resolution of the GSMA lo.
+    '''
+    #load the gsma indexes
+    try:
+        T_408, indexes = np.load('/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes_16.npy')
+    except:
+        raise Exception("Indexes for the Anstey sky lo have not been "\
+                        +"generated.")
+    return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
+                                nside=nside, map=map)
