@@ -87,6 +87,39 @@ def calc_blm(nside, lmax, beam_use=beam_cos, norm_flag=True):
 
     return blm_real
 
+
+def calc_beam_vector(nside, lmax, beam_use=beam_cos, norm_flag=True):
+    """
+    Get the beam vector for an azimuthally symmetric beam
+
+    For getting the convolution right, I seem to need a factor of
+    np.sqrt(4.0*np.pi/(2.0*l+1))
+    for the bl. I understand where this comes from, but not why
+    it's not mentioned in some of the papers.
+
+    beam_use:
+        The beamfunction to use. A function of theta only. Doesn't have to 
+        be normalised (norm_flag=True deals with that).
+
+    returns:
+        beam_vector - (nalm,) real matrix with bl on diagonal
+    """
+    RS = SH.RealSphericalHarmonics()
+
+    #get the real blm of the map
+    blm_real = calc_blm(nside, lmax, beam_use, norm_flag)
+
+    #form the beam matrix from the blm
+    nalm = RS.get_size(lmax)
+    beam_vector = np.zeros((nalm,))
+    for i in range(nalm):
+        (l,m) = RS.get_lm(i)
+        bindx = RS.get_idx(l,0)
+        bl = blm_real[bindx] * np.sqrt(4.0*np.pi/(2.0*l+1))
+        beam_vector[i] = bl
+    return beam_vector
+
+
 def calc_beam_matrix(nside, lmax, beam_use=beam_cos, norm_flag=True):
     """
     Get the beam matrix for an azimuthally symmetric beam
