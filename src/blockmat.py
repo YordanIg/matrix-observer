@@ -73,9 +73,22 @@ class BlockMatrix:
 
         Parameters
         ----------
-        other : BlockMatrix
-            Must have the correct dimensionality for matrix multiplication.
+        other : BlockMatrix or numpy.ndarray
+            Must have the correct dimensionality for matrix multiplication. If 
+            an ndarray is passed, will attempt to create a BlockMatrix with the 
+            'block' flag or a BlockVector from it with the 'as-is' flag for 
+            multiplication.
+            These defaults correspond to my convenient use cases.
         """
+        # If other is an ndarray, attempt to interpret it as a Block object.
+        if isinstance(other, np.ndarray) and np.shape(other)[0] == self.mat_shape[1]:
+            if len(np.shape(other)) == 1:
+                other = BlockVector(vec=other, mode='as-is', nblock=self.nblock)
+            elif len(np.shape(other)) == 2:
+                other = BlockMatrix(mat=other, mode='block', nblock=self.nblock)
+            else:
+                raise ValueError("ndarray of incompatible shape for matmul with this Block object.")
+
         # Check dimensionality is right.
         if self.mat_shape[1] != other.mat_shape[0]:
             raise ValueError("incompatible matrix shapes.")
@@ -83,6 +96,7 @@ class BlockMatrix:
         product = []
         for self_block, other_block in zip(self._matrix, other._matrix):
             product.append(self_block@other_block)
+        product = np.array(product)
             
         if np.shape(product)[-1] == 1:
             return BlockVector(product)
