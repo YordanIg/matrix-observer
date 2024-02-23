@@ -6,7 +6,10 @@ import numpy as np
 import src.coordinates as CO
 import src.spherical_harmonics as SH
 import src.beam_functions as BF
-from src.blockmat import BlockMatrix
+from src.blockmat import BlockMatrix, BlockVector
+from src.nregions_models import pix_forward_model_pl
+
+RS = SH.RealSphericalHarmonics()
 
 def _calc_summation_matrix(Ntau, Nt):
     """
@@ -163,3 +166,50 @@ def calc_observation_matrix_all_pix_multifreq(nuarr, nside, lmax, Ntau,
         mat_B_bl = BlockMatrix(mat=mat_B, nblock=len(nuarr))
         return mat_A_bl, (mat_G_bl, mat_Y_bl, mat_B_bl)
     return BlockMatrix(mat=mat_A, nblock=len(nuarr))
+
+################################################################################
+# Anstey foreground modelling
+################################################################################
+
+def generate_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_harmonic_mat):
+    """
+    Return a function that forward-models (without noise) the Nregions Anstey 
+    power-law only model, based on the degraded GSMA foreground model. Note that 
+    this is a foreground only model.
+    
+    Returns
+    -------
+    model : function
+        model is a function of a list of power law indices, one for each of the
+        sky regions of the model.
+    """
+    lmax = 32
+    # Load the base map.
+    base_map, _ = np.load('anstey/indexes_16.npy')
+    if len(base_map) != np.shape(masks)[1]:
+        raise ValueError("mask pixel number should match base map pixel number.")
+    
+    if not isinstance(observation_mat, BlockMatrix):
+        observation_mat = BlockMatrix(mat=observation_mat, mode='block', nblock=len(nuarr))
+
+    if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
+        raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
+    
+    if not isinstance(spherical_harmonic_mat, BlockMatrix):
+        spherical_harmonic_mat = BlockMatrix(mat=spherical_harmonic_mat, mode='block', nblock=len(nuarr))
+
+    if spherical_harmonic_mat.block_shape[1] != RS.get_size(lmax=lmax):
+        raise ValueError(f"spherical harmonic matrix size should correspond to lmax={lmax}")
+    
+    mat_Y = spherical_harmonic_mat
+    invmat_Y_block = np.linalg.pinv(mat_Y.block[0])
+    invmat_Y = BlockMatrix(invmat_Y_block, mode='block', nblock=len(nuarr))
+
+    observation_invmat_Y_product = observation_mat @ invmat_Y
+    
+    def model(theta):
+        p_fg = pix_forward_model_pl(powers=theta, nuarr=nuarr, base_map=base_map, masks=masks)
+        data = observation_invmat_Y_product @ BlockVector(vec=p_fg, mode='as-is', nblock=len(nuarr))
+        return data.vector
+
+    return model
