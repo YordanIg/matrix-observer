@@ -164,6 +164,16 @@ class BlockMatrix:
         block of the matrix.
         """
         return self._matrix
+    
+    @property
+    def diag(self):
+        """
+        Return the diagonal of the matrix, as long as it's composed of square
+        blocks.
+        """
+        if self.block_shape[0] != self.block_shape[1]:
+            raise ValueError("diagonal of non-square matrix is undefined.")
+        return np.diag(self.matrix)
 
 
 class BlockVector(BlockMatrix):
