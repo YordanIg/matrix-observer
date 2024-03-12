@@ -44,6 +44,24 @@ def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
     covar = np.diag(temperr**2)
     return np.random.normal(temps, np.abs(temperr)), covar
 
+def add_noise_uniform(temps, err, seed=123):
+    """
+    Generate uniform noise for the passed temperature vector.
+
+    Returns the tuple: (data, data noise covar matrix)
+    The noise covariance is assumed to be a diagonal matrix, with the noise
+    variance along the diagonals.
+    """
+    np.random.seed(seed)
+    if isinstance(temps, BlockVector):
+        covar = BlockMatrix(np.diag([err**2]*temps.vec_len), mode='as-is', nblock=temps.nblock)
+        noisy_temps = np.random.normal(temps.vector, np.abs(err))
+        return BlockVector(noisy_temps, mode='as-is', nblock=temps.nblock), covar
+
+    covar = np.diag([err**2]*len(temps))
+    return np.random.normal(temps, np.abs(err)), covar
+
+
 def cm21_globalT(nu, A=-0.2, nu0=80.0, dnu = 5.0):
     """
     Return the Gaussian 21-cm monopole model Tmon(nu) for an
