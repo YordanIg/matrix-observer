@@ -18,7 +18,7 @@ from src.blockmat import BlockMatrix, BlockVector
 from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
 
-def fiducial_obs():
+def fiducial_obs(uniform_noise=False):
     # Forward model the fiducial degraded GSMA.
     Nfreq = 51
     nuarr = np.linspace(50,100,Nfreq)
@@ -28,12 +28,14 @@ def fiducial_obs():
     narrow_cosbeam = lambda x: BF.beam_cos(x, theta0=0.8)
     fg_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax)
 
-    #mat_A, (mat_G, mat_Y, mat_B) = FM.calc_observation_matrix_all_pix_multifreq(nuarr, nside, lmax, Ntau=npix, beam_use=narrow_cosbeam, return_mat=True)
-    times = np.linspace(0,24,24)
+    times = np.linspace(0,24,24, endpoint=False)
     mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=len(times), times=times, beam_use=narrow_cosbeam, return_mat=True)
 
     d = mat_A@fg_alm
-    dnoisy, noise_covar = SM.add_noise(temps=d, dnu=1, Ntau=npix, t_int=1e4)
+    if uniform_noise:
+        dnoisy, noise_covar = SM.add_noise_uniform(temps=d, err=1)
+    elif not uniform_noise:
+        dnoisy, noise_covar = SM.add_noise(temps=d, dnu=1, Ntau=npix, t_int=1)
     return dnoisy, noise_covar, mat_A, mat_Y, nuarr
 
 
@@ -118,28 +120,53 @@ def log_posterior(theta, y, yerr, model, prior_range):
     return lp
 
 
-def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000):
+def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000, theta_guess=None, tag=''):
     # create a small ball around the MLE the initialize each walker
     nwalkers, ndim = 32, len(inference_bounds)
-    theta_guess = np.array([0.5*(bound[0]+bound[1]) for bound in inference_bounds])
+    if theta_guess is None:
+        theta_guess = np.array([0.5*(bound[0]+bound[1]) for bound in inference_bounds])
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
-    priors = np.array([[-0.1, 10.0]*ndim])
+    priors = np.array([[-0.1, 5.0]*ndim])
     print("theta guess = {}".format(theta_guess))
     # run emcee
-    steps = 10000
     err = np.sqrt(noise_covar.diag)
-    sampler = EnsembleSampler(nwalkers, ndim, log_likelihood, 
-                        args=(dnoisy.vector, err, model))
+    sampler = EnsembleSampler(nwalkers, ndim, log_posterior, 
+                        args=(dnoisy.vector, err, model, priors))
     _=sampler.run_mcmc(pos, steps, progress=True)
-    np.save(f"saves/chain_anstey{ndim}regions_gsmalo_speedy", sampler.get_chain())  # SAVE THE CHAIN.
+    np.save(f"saves/chain_anstey{ndim}regions_gsmalo_speedy{tag}", sampler.get_chain())  # SAVE THE CHAIN.
 
 
-def main(Nregions=6, steps=10000):
-    dnoisy, noise_covar, mat_A, mat_Y, nuarr = fiducial_obs()
+def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
+    """
+    Run Nregions inference on observations of the degraded GSMA, with either 
+    uniform or radiometric noise.
+    """
+    dnoisy, noise_covar, mat_A, mat_Y, nuarr = fiducial_obs(uniform_noise=uniform_noise)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
-    model = FM.generate_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
-    model(theta=np.array([1, 2, 3, 4, 5, 6]))
+    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
+    if return_model:
+        return model
+    model(theta=np.array([2]*Nregions))
     inference(inference_bounds, noise_covar, dnoisy, model, steps=steps)
+
+
+def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
+    """
+    Do the same as main, but run inference with larger errors, then with smaller
+    errors, starting at the mean inferred parameter position of the prior run.
+    """
+    dnoisy, noise_covar, mat_A, mat_Y, nuarr = fiducial_obs(uniform_noise=uniform_noise)
+    mask_maps, inference_bounds = mask_split(Nregions=Nregions)
+    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
+    model(theta=np.array([2]*Nregions))
+    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag='_0')
+
+    chain = np.load(f"saves/chain_anstey{Nregions}regions_gsmalo_speedy_0.npy")
+    chain = chain[15000:]  # Burn-in.
+    ch_sh = np.shape(chain)
+    chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
+    theta_guess = np.mean(chain_flat, axis=0)
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_guess=theta_guess, tag='_1')
 
 
 def _test_forward_models():
