@@ -291,3 +291,17 @@ class BlockVector(BlockMatrix):
         block of the vector.
         """
         return np.array(np.split(self.vector, self.nblock))
+
+    @property
+    def vec_len(self):
+        """
+        Return the total length of the block vector.
+        """
+        return len(self.vector)
+    
+    @property
+    def vec_block_len(self):
+        """
+        Return the length of the vector's block.
+        """
+        return len(self.block[0])
