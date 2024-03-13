@@ -53,8 +53,6 @@ def mask_split(Nregions=9, visualise=False):
     indx_range = np.linspace(min_indx, max_indx, Nregions+1)
     inference_bounds = [(indx_range[i],indx_range[i+1]) for i in range(Nregions)]
     inference_bounds = np.array(inference_bounds)
-    print(indx_range)
-    print(inference_bounds)
 
     masks = []
     for i in range(len(indx_range)-1):
@@ -127,7 +125,7 @@ def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000, theta_g
         theta_guess = np.array([0.5*(bound[0]+bound[1]) for bound in inference_bounds])
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
     priors = np.array([[-0.1, 5.0]*ndim])
-    print("theta guess = {}".format(theta_guess))
+
     # run emcee
     err = np.sqrt(noise_covar.diag)
     sampler = EnsembleSampler(nwalkers, ndim, log_posterior, 
@@ -150,7 +148,7 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
     inference(inference_bounds, noise_covar, dnoisy, model, steps=steps)
 
 
-def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
+def main_tworun(Nregions=9, steps=10000, uniform_noise=True, tag='_NUnoise'):
     """
     Do the same as main, but run inference with larger errors, then with smaller
     errors, starting at the mean inferred parameter position of the prior run.
@@ -159,14 +157,91 @@ def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     model(theta=np.array([2]*Nregions))
-    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag='_0')
+    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{tag}_0')
 
-    chain = np.load(f"saves/chain_anstey{Nregions}regions_gsmalo_speedy_0.npy")
+    chain = np.load(f"saves/chain_anstey{Nregions}regions_gsmalo_speedy{tag}_0.npy")
     chain = chain[15000:]  # Burn-in.
     ch_sh = np.shape(chain)
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
     theta_guess = np.mean(chain_flat, axis=0)
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_guess=theta_guess, tag='_1')
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_guess=theta_guess, tag=f'{tag}_1')
+
+
+def plot_non_uniform_noise_comparison():
+    """
+    Looks like the radiometric noise inference produces different residuals and
+    inferred parameters to the uniform noise case. This is likely because the 
+    radiometric case places less relative importance on the noisier, 
+    lower-frequency values.
+    """
+    from chainconsumer import ChainConsumer
+
+    mask_maps, inference_bounds = mask_split(Nregions=9)
+
+    # Radiometric noise.
+    chain = np.load("saves/Nregs_pl_gsmalo/9reg_radnoise_1.npy")
+    c=ChainConsumer()
+    chain = chain[10000:]  # Burn-in.
+    ch_sh = np.shape(chain)
+    chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
+    '''c.add_chain(chain_flat, parameters=[r'$\gamma_1$',r'$\gamma_2$',r'$\gamma_3$',r'$\gamma_4$',r'$\gamma_5$',r'$\gamma_6$',r'$\gamma_7$',r'$\gamma_8$',r'$\gamma_9$'])
+    c.plotter.plot()
+    plt.show()'''
+
+    # Uniform noise.
+    chain = np.load("saves/Nregs_pl_gsmalo/9reg_unoise_1.npy")
+    c=ChainConsumer()
+    chain = chain[10000:]  # Burn-in.
+    ch_sh = np.shape(chain)
+    chain_flat_unoise = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
+    '''c.add_chain(chain_flat_unoise, parameters=[r'$\gamma_1$',r'$\gamma_2$',r'$\gamma_3$',r'$\gamma_4$',r'$\gamma_5$',r'$\gamma_6$',r'$\gamma_7$',r'$\gamma_8$',r'$\gamma_9$'])
+    c.plotter.plot()
+    plt.show()'''
+    
+    # Generate most-likely data.
+    theta_mean = np.mean(chain_flat, axis=0)
+    theta_mean_unoise = np.mean(chain_flat_unoise, axis=0)
+
+    model = main(Nregions=9, return_model=True)
+    dnoisy, _, _, _, _ = fiducial_obs(uniform_noise=False)
+
+    model_temps = model(theta=theta_mean)
+    model_temps_unoise = model(theta=theta_mean_unoise)
+
+    fig, ax = plt.subplots(1, 2, figsize=(10,4))
+    ax[0].plot(dnoisy.vector, '.', label='data - radiometric noise')
+    ax[0].plot(model_temps, '.', label='model')
+    ax[1].plot(dnoisy.vector-model_temps, '.')
+    ax[0].set_xlabel('bin')
+    ax[1].set_xlabel('bin')
+    ax[0].set_ylabel('Temperature [K]')
+    ax[1].set_ylabel('Temperature residuals [K]')
+    ax[0].legend()
+    fig.tight_layout()
+    fig.savefig('fig/non_uniform_noise_comparison_0.png')
+
+    fig, ax = plt.subplots(1, 2, figsize=(10,4))
+    ax[0].plot(dnoisy.vector, '.', label='data - uniform noise')
+    ax[0].plot(model_temps_unoise, '.', label='model')
+    ax[1].plot(dnoisy.vector-model_temps_unoise, '.')
+    ax[0].set_xlabel('bin')
+    ax[1].set_xlabel('bin')
+    ax[0].set_ylabel('Temperature [K]')
+    ax[1].set_ylabel('Temperature residuals [K]')
+    ax[0].legend()
+    fig.tight_layout()
+    fig.savefig('fig/non_uniform_noise_comparison_1.png')
+    plt.close('all')
+
+    # Plot the power law indices.
+    probable_theta = np.array([0.5*(bound[0]+bound[1]) for bound in inference_bounds])
+    plt.plot(theta_mean, 'o', label='inferred radiometric')
+    plt.plot(theta_mean_unoise, 'o', label='inferred uniform')
+    plt.plot(probable_theta, '.', label='predicted')
+    plt.xlabel("parameter")
+    plt.ylabel("power law index")
+    plt.legend()
+    plt.savefig('fig/non_uniform_noise_comparison_3.png')
 
 
 def _test_forward_models():
