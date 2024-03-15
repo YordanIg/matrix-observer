@@ -6,6 +6,7 @@ import numpy as np
 import src.coordinates as CO
 import src.spherical_harmonics as SH
 import src.beam_functions as BF
+import src.sky_models as SM
 from src.blockmat import BlockMatrix, BlockVector
 from src.nregions_models import pix_forward_model_pl
 
@@ -269,6 +270,74 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
             data_term = np.zeros_like(data)
             for i in range(len(nuarr)):
                 data_term[i*block_len:(i+1)*block_len] = mask_vec*nuarr_norm[i]**(-indx)
+            data += data_term
+        return data
+
+    return model
+
+################################################################################
+# Anstey + 21-cm foreground modelling
+################################################################################
+
+def genopt_nregions_cm21_pl_forward_model(nuarr, masks, observation_mat, 
+                                          spherical_harmonic_mat):
+    """
+    Return an OPTIMIZED function that forward-models (without noise) the 
+    Nregions Anstey power-law only model, based on the degraded GSMA foreground 
+    model. Note that this is a foreground only model.
+    
+    Returns
+    -------
+    model : function
+        model is a function of a list of power law indices, one for each of the
+        sky regions of the model.
+    """
+    lmax = 32
+    # Load the base map.
+    base_map, _ = np.load('anstey/indexes_16.npy')
+    if len(base_map) != np.shape(masks)[1]:
+        raise ValueError("mask pixel number should match base map pixel number.")
+    
+    if not isinstance(observation_mat, BlockMatrix):
+        observation_mat = BlockMatrix(mat=observation_mat, mode='block', nblock=len(nuarr))
+
+    if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
+        raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
+    
+    if not isinstance(spherical_harmonic_mat, BlockMatrix):
+        spherical_harmonic_mat = BlockMatrix(mat=spherical_harmonic_mat, 
+                                             mode='block', nblock=len(nuarr))
+
+    if spherical_harmonic_mat.block_shape[1] != RS.get_size(lmax=lmax):
+        raise ValueError(f"spherical harmonic matrix size should correspond to lmax={lmax}")
+    
+    mat_Y = spherical_harmonic_mat
+    invmat_Y_block = np.linalg.pinv(mat_Y.block[0])
+    invmat_Y = BlockMatrix(invmat_Y_block, mode='block', nblock=len(nuarr))
+
+    # Precompute the mask -> observation vectors.
+    observation_invmat_Y_product = observation_mat @ invmat_Y
+    masked_basemaps = np.array([mask*base_map for mask in masks])
+    mask_vecs = np.array([bl@mb for bl, mb in zip(observation_invmat_Y_product.block, masked_basemaps)])
+
+    # Precompute the normalised nuarr.
+    nuarr_norm = nuarr/408
+    
+    # Decide the data vector length.
+    data_len = observation_mat.mat_shape[0]
+    block_len = observation_mat.block_shape[0]
+
+    #@jit
+    def model(theta):
+        theta_fg = theta[:-3]
+        theta_A, theta_nu0, theta_dnu = theta[-3:]
+        cm21_mon = SM.cm21_globalT(nu=nuarr, A=theta_A, nu0=theta_nu0, dnu=theta_dnu)
+        
+        data = np.zeros(shape=data_len)
+        for mask_vec, indx in zip(mask_vecs, theta_fg):
+            data_term = np.zeros_like(data)
+            for i in range(len(nuarr)):
+                data_term[i*block_len:(i+1)*block_len] = mask_vec*nuarr_norm[i]**(-indx) + cm21_mon[i]/len(theta_fg)
             data += data_term
         return data
 
