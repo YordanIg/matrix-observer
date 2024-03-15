@@ -137,6 +137,22 @@ def cm21_gauss_mondip_alm(nu, lmax, params = None):
     mock = mock2.reshape(Nfreq * Nalm)
     return mock
 
+def cm21_gauss_mon_alm(nu, lmax, params = None):
+    """
+    Given the lmax for real alms build a model consisting of the
+    monopole from the 21cm signal as a Gaussian.
+
+    Create copies of the alm for each frequency to
+    return mock = (alms(nu1), alms(nu2), ...)
+    """
+    if params is None:
+        A = -0.2
+        nu0 = 80.0
+        dnu = 5.0
+    else:
+        A, nu0, dnu = params
+    return cm21_gauss_mondip_alm(nu, lmax, params=[A, nu0, dnu, 0, 0, 0])
+
 def cm21_gauss_mondip_alm_pymc(nu, lmax, params = None):
     """
     Given the lmax for real alms build a model consisting of the
