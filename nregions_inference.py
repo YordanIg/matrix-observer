@@ -187,7 +187,7 @@ def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
     # Run inference the first time.
     inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{noisetag}_0')
 
-    chain = np.load(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_0.npy")
+    chain = np.load(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}_0.npy")
     chain = chain[15000:]  # Burn-in.
     ch_sh = np.shape(chain)
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
