@@ -1,25 +1,29 @@
+"""
+Run Nregions power law inference on the degraded GSMA sky. Provides functions 
+to do the forward modelling, inference and plotting of results. Saves chains in:
+    saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}_(0/1).npy
+where Nregions is the number of regions, noisetag can be either 'unoise' =
+uniform noise or 'radnoise' = radiometric noise. 
+
+main runs inference once, while main_tworun runs it twice, appending _0 and _1 
+on the filenames. The first run uses larger errors than the second to zero in on
+the correct posterior position.
+"""
 import healpy as hp
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import minimize
-from scipy.linalg import svd
-import pandas as pd
-import seaborn as sns
 from emcee import EnsembleSampler
-
-from pygdsm import GlobalSkyModel2016
 
 import src.forward_model as FM
 import src.beam_functions as BF
-import src.powerlaw_regression as PR
 import src.sky_models as SM
-import src.spherical_harmonics as SH
-from src.blockmat import BlockMatrix, BlockVector
 from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
 
 def fiducial_obs(uniform_noise=False):
-    # Forward model the fiducial degraded GSMA.
+    """
+    Forward model the fiducial degraded GSMA.
+    """
     Nfreq = 51
     nuarr = np.linspace(50,100,Nfreq)
     lmax = 32
@@ -40,6 +44,13 @@ def fiducial_obs(uniform_noise=False):
 
 
 def mask_split(Nregions=9, visualise=False):
+    """
+    Split the degraded GSMA sky into Nregions, returning as a tuple:
+        (mask_maps, inference_bounds)
+    where the inference bounds are the power law boundaries of each mask. Note 
+    that this is a bit of a misnomer: often the inferred parameters will
+    actually not be bounded by these inference bounds.
+    """
     # Split the sky into the Nregions.
     indx = np.load("anstey/indexes_16.npy")
     if visualise:
@@ -119,19 +130,25 @@ def log_posterior(theta, y, yerr, model, prior_range):
 
 
 def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000, theta_guess=None, tag=''):
+    """
+    Run inference.
+    If inference bounds are passed, they will be bisected to find a guess at the 
+    starting inference position. If theta_guess is passed, this information is 
+    disregarded.
+    """
     # create a small ball around the MLE the initialize each walker
     nwalkers, ndim = 32, len(inference_bounds)
     if theta_guess is None:
         theta_guess = np.array([0.5*(bound[0]+bound[1]) for bound in inference_bounds])
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
-    priors = np.array([[-0.1, 5.0]*ndim])
+    priors = np.array([[-0.1, 5.0]]*ndim)
 
     # run emcee
     err = np.sqrt(noise_covar.diag)
     sampler = EnsembleSampler(nwalkers, ndim, log_posterior, 
                         args=(dnoisy.vector, err, model, priors))
     _=sampler.run_mcmc(pos, steps, progress=True)
-    np.save(f"saves/chain_anstey{ndim}regions_gsmalo_speedy{tag}", sampler.get_chain())  # SAVE THE CHAIN.
+    np.save(f"saves/Nregs_pl_gsmalo/{ndim}reg{tag}", sampler.get_chain())  # SAVE THE CHAIN.
 
 
 def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
@@ -139,32 +156,44 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
     Run Nregions inference on observations of the degraded GSMA, with either 
     uniform or radiometric noise.
     """
+    if uniform_noise:
+        noisetag = '_unoise'
+    elif not uniform_noise:
+        noisetag = '_radnoise'
+
     dnoisy, noise_covar, mat_A, mat_Y, nuarr = fiducial_obs(uniform_noise=uniform_noise)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     if return_model:
         return model
     model(theta=np.array([2]*Nregions))
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps)
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, tag=noisetag)
 
 
-def main_tworun(Nregions=9, steps=10000, uniform_noise=True, tag='_NUnoise'):
+def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
     """
     Do the same as main, but run inference with larger errors, then with smaller
     errors, starting at the mean inferred parameter position of the prior run.
     """
+    if uniform_noise:
+        noisetag = '_unoise'
+    elif not uniform_noise:
+        noisetag = '_radnoise'
+
     dnoisy, noise_covar, mat_A, mat_Y, nuarr = fiducial_obs(uniform_noise=uniform_noise)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     model(theta=np.array([2]*Nregions))
-    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{tag}_0')
+    # Run inference the first time.
+    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{noisetag}_0')
 
-    chain = np.load(f"saves/chain_anstey{Nregions}regions_gsmalo_speedy{tag}_0.npy")
+    chain = np.load(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_0.npy")
     chain = chain[15000:]  # Burn-in.
     ch_sh = np.shape(chain)
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
     theta_guess = np.mean(chain_flat, axis=0)
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_guess=theta_guess, tag=f'{tag}_1')
+    # Run inference the second time.
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_guess=theta_guess, tag=f'{noisetag}_1')
 
 
 def plot_non_uniform_noise_comparison():
@@ -176,7 +205,7 @@ def plot_non_uniform_noise_comparison():
     """
     from chainconsumer import ChainConsumer
 
-    mask_maps, inference_bounds = mask_split(Nregions=9)
+    _, inference_bounds = mask_split(Nregions=9)
 
     # Radiometric noise.
     chain = np.load("saves/Nregs_pl_gsmalo/9reg_radnoise_1.npy")
@@ -243,6 +272,20 @@ def plot_non_uniform_noise_comparison():
     plt.legend()
     plt.savefig('fig/non_uniform_noise_comparison_3.png')
 
+
+def plot_inference(fname, burn_in=10000):
+    """
+    Make plots showcasing the inference.
+    """
+    from chainconsumer import ChainConsumer
+    chain = np.load("saves/Nregs_pl_gsmalo/"+fname+".npy")
+    c=ChainConsumer()
+    chain = chain[burn_in:]
+    ch_sh = np.shape(chain)
+    chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
+    c.add_chain(chain_flat, parameters=[r'$\gamma$'+f'$_{i}$' for i in range(1, len(chain_flat[0])+1)])
+    c.plotter.plot()
+    plt.show()
 
 def _test_forward_models():
     """
