@@ -6,7 +6,7 @@ import numpy as np
 import src.coordinates as CO
 import src.spherical_harmonics as SH
 import src.beam_functions as BF
-import src.sky_models as SM
+from src.sky_models import cm21_globalT
 from src.blockmat import BlockMatrix, BlockVector
 from src.nregions_models import pix_forward_model_pl
 
@@ -336,9 +336,7 @@ def genopt_nregions_cm21_pl_forward_model(nuarr, masks, observation_mat,
         
         theta_fg = theta[:-3]
         theta_A, theta_nu0, theta_dnu = theta[-3:]
-        
-        chi = (nuarr - theta_nu0) / theta_dnu
-        cm21_mon = theta_A * np.exp(-0.5 * chi * chi)
+        cm21_mon = cm21_globalT(nuarr, theta_A, theta_nu0, theta_dnu)
         
         data = np.zeros(shape=data_len)
         for mask_vec, indx in zip(mask_vecs, theta_fg):
