@@ -142,8 +142,9 @@ def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000, theta_g
     nwalkers, fg_dim, cm21_dim = 32, len(inference_bounds), 3
     ndim = fg_dim + cm21_dim
 
-    theta_guess = [0.5*(bound[0]+bound[1]) for bound in inference_bounds] + [-1000, 80, 5]
-    theta_guess = np.array(theta_guess)
+    if theta_guess is None:
+        theta_guess = [0.5*(bound[0]+bound[1]) for bound in inference_bounds] + [-1000, 80, 5]
+        theta_guess = np.array(theta_guess)
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
 
     priors = [[-0.1, 5.0]]*fg_dim
@@ -188,13 +189,13 @@ def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
 
     dnoisy, noise_covar, mat_A, mat_Y, nuarr = fiducial_obs(uniform_noise=uniform_noise)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
-    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
-    model(theta=np.array([2]*Nregions))
+    model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
+    model(theta=np.array([2]*Nregions + [-200, 80, 5]))
     # Run inference the first time.
     inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{noisetag}_0')
 
     chain = np.load(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_0.npy")
-    chain = chain[15000:]  # Burn-in.
+    chain = chain[5000:]  # Burn-in.
     ch_sh = np.shape(chain)
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
     theta_guess = np.mean(chain_flat, axis=0)
