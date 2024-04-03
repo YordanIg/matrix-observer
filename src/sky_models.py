@@ -10,6 +10,7 @@ Models should return a vector of alm with structure
 import healpy
 import numpy as np
 from pygdsm import GlobalSkyModel2016
+from numba import jit
 
 from src.blockmat import BlockMatrix, BlockVector
 from src.spherical_harmonics import RealSphericalHarmonics
@@ -61,7 +62,7 @@ def add_noise_uniform(temps, err, seed=123):
     covar = np.diag([err**2]*len(temps))
     return np.random.normal(temps, np.abs(err)), covar
 
-
+@jit
 def cm21_globalT(nu, A=-0.2, nu0=80.0, dnu = 5.0):
     """
     Return the Gaussian 21-cm monopole model Tmon(nu) for an
