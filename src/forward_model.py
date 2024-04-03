@@ -265,6 +265,8 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
 
     @jit
     def model(theta):
+        if len(theta) != len(mask_vecs):
+            raise ValueError("invalid theta input dimension")
         data = np.zeros(shape=data_len)
         for mask_vec, indx in zip(mask_vecs, theta):
             data_term = np.zeros_like(data)
@@ -327,11 +329,16 @@ def genopt_nregions_cm21_pl_forward_model(nuarr, masks, observation_mat,
     data_len = observation_mat.mat_shape[0]
     block_len = observation_mat.block_shape[0]
 
-    #@jit
+    @jit
     def model(theta):
+        if len(theta) != len(mask_vecs)+3:
+            raise ValueError("invalid theta input dimension")
+        
         theta_fg = theta[:-3]
         theta_A, theta_nu0, theta_dnu = theta[-3:]
-        cm21_mon = SM.cm21_globalT(nu=nuarr, A=theta_A, nu0=theta_nu0, dnu=theta_dnu)
+        
+        chi = (nuarr - theta_nu0) / theta_dnu
+        cm21_mon = theta_A * np.exp(-0.5 * chi * chi)
         
         data = np.zeros(shape=data_len)
         for mask_vec, indx in zip(mask_vecs, theta_fg):
