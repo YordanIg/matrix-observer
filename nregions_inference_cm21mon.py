@@ -21,6 +21,13 @@ import src.sky_models as SM
 from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
 
+# Fiducial 21-cm parameters and priors. ENSURE YOU CHANGE THEM TOGETHER.
+cm21_fid_pars = [-200, 80, 5]
+cm21_priors = [[-400, -10], [70, 90], [1, 10]]
+for par, prior in zip(cm21_fid_pars, cm21_priors):
+    if par > prior[1] or par < prior[0]:
+        raise ValueError('21-cm fiducial parameters are outside prior range.')
+
 def fiducial_obs(uniform_noise=False):
     """
     Forward model the fiducial degraded GSMA.
@@ -32,7 +39,7 @@ def fiducial_obs(uniform_noise=False):
     npix = hp.nside2npix(nside)
     narrow_cosbeam = lambda x: BF.beam_cos(x, theta0=0.8)
     fg_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax)
-    cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=(-1000,80,5))
+    cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_fid_pars)
 
     times = np.linspace(0,24,24, endpoint=False)
     mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=len(times), times=times, beam_use=narrow_cosbeam, return_mat=True)
@@ -143,12 +150,12 @@ def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000, theta_g
     ndim = fg_dim + cm21_dim
 
     if theta_guess is None:
-        theta_guess = [0.5*(bound[0]+bound[1]) for bound in inference_bounds] + [-1000, 80, 5]
+        theta_guess = [0.5*(bound[0]+bound[1]) for bound in inference_bounds] + cm21_fid_pars
         theta_guess = np.array(theta_guess)
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
 
     priors = [[-0.1, 5.0]]*fg_dim
-    priors += [[-1500, -500], [70, 90], [1, 10]]
+    priors += cm21_priors
     priors = np.array(priors)
     # run emcee
     err = np.sqrt(noise_covar.diag)
@@ -173,7 +180,7 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
     model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     if return_model:
         return model
-    model(theta=np.array([2]*Nregions + [-200, 80, 5]))
+    model(theta=np.array([2]*Nregions + cm21_fid_pars))
     inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, tag=noisetag)
 
 
@@ -190,7 +197,7 @@ def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
     dnoisy, noise_covar, mat_A, mat_Y, nuarr = fiducial_obs(uniform_noise=uniform_noise)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
-    model(theta=np.array([2]*Nregions + [-200, 80, 5]))
+    model(theta=np.array([2]*Nregions + cm21_fid_pars))
     # Run inference the first time.
     inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{noisetag}_0')
 
