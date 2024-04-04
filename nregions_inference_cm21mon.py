@@ -28,12 +28,14 @@ for par, prior in zip(cm21_fid_pars, cm21_priors):
     if par > prior[1] or par < prior[0]:
         raise ValueError('21-cm fiducial parameters are outside prior range.')
 
+# Fiducial frequency array
+Nfreq = 51
+nuarr = np.linspace(50,100,Nfreq)
+
 def fiducial_obs(uniform_noise=False):
     """
     Forward model the fiducial degraded GSMA.
     """
-    Nfreq = 51
-    nuarr = np.linspace(50,100,Nfreq)
     lmax = 32
     nside = 16
     npix = hp.nside2npix(nside)
