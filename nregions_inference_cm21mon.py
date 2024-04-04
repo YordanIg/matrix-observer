@@ -156,7 +156,7 @@ def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000, theta_g
         theta_guess = np.array(theta_guess)
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
 
-    priors = [[-0.1, 5.0]]*fg_dim
+    priors = [[0.5, 5.0]]*fg_dim
     priors += cm21_priors
     priors = np.array(priors)
     # run emcee
@@ -177,9 +177,8 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
     elif not uniform_noise:
         noisetag = '_radnoise'
 
-    if not return_model:
-        dnoisy, noise_covar, mat_A, mat_Y = fiducial_obs(uniform_noise=uniform_noise)
-        np.save("saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_data.npy", dnoisy.vector)
+    dnoisy, noise_covar, mat_A, mat_Y = fiducial_obs(uniform_noise=uniform_noise)
+    np.save(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_data.npy", dnoisy.vector)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     if return_model:
@@ -199,7 +198,7 @@ def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
         noisetag = '_radnoise'
 
     dnoisy, noise_covar, mat_A, mat_Y = fiducial_obs(uniform_noise=uniform_noise)
-    np.save("saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_data.npy", dnoisy.vector)
+    np.save(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_data.npy", dnoisy.vector)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     model(theta=np.array([2]*Nregions + cm21_fid_pars))
