@@ -22,8 +22,8 @@ from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
 
 # Fiducial 21-cm parameters and priors. ENSURE YOU CHANGE THEM TOGETHER.
-cm21_fid_pars = [-200, 80, 5]
-cm21_priors = [[-400, -10], [70, 90], [1, 10]]
+cm21_fid_pars = [-900, 80, 5]
+cm21_priors = [[-1500, -500], [70, 90], [1, 10]]
 for par, prior in zip(cm21_fid_pars, cm21_priors):
     if par > prior[1] or par < prior[0]:
         raise ValueError('21-cm fiducial parameters are outside prior range.')
