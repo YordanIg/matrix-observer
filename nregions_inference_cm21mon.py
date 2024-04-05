@@ -43,7 +43,7 @@ def fiducial_obs(uniform_noise=False):
     fg_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax)
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_fid_pars)
 
-    times = np.linspace(0,24,24, endpoint=False)
+    times = np.linspace(0,24,3, endpoint=False)
     mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=len(times), times=times, beam_use=narrow_cosbeam, return_mat=True)
 
     d = mat_A@(fg_alm+cm21_alm)
@@ -167,7 +167,7 @@ def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000, theta_g
     np.save(f"saves/Nregs_pl_gsmalo_cm21mon/{fg_dim}reg{tag}", sampler.get_chain())  # SAVE THE CHAIN.
 
 
-def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
+def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag=""):
     """
     Run Nregions inference on observations of the degraded GSMA, with either 
     uniform or radiometric noise.
@@ -178,7 +178,7 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
         noisetag = '_radnoise'
 
     dnoisy, noise_covar, mat_A, mat_Y = fiducial_obs(uniform_noise=uniform_noise)
-    np.save(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_data.npy", dnoisy.vector)
+    np.save(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}{tag}_data.npy", dnoisy.vector)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     if return_model:
@@ -187,7 +187,7 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True):
     inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, tag=noisetag)
 
 
-def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
+def main_tworun(Nregions=9, steps=10000, uniform_noise=True, tag=""):
     """
     Do the same as main, but run inference with larger errors, then with smaller
     errors, starting at the mean inferred parameter position of the prior run.
@@ -198,20 +198,20 @@ def main_tworun(Nregions=9, steps=10000, uniform_noise=True):
         noisetag = '_radnoise'
 
     dnoisy, noise_covar, mat_A, mat_Y = fiducial_obs(uniform_noise=uniform_noise)
-    np.save(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_data.npy", dnoisy.vector)
+    np.save(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}{tag}_data.npy", dnoisy.vector)
     mask_maps, inference_bounds = mask_split(Nregions=Nregions)
     model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     model(theta=np.array([2]*Nregions + cm21_fid_pars))
     # Run inference the first time.
-    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{noisetag}_0')
+    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, tag=f'{noisetag}{tag}_0')
 
-    chain = np.load(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}_0.npy")
+    chain = np.load(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}{tag}_0.npy")
     chain = chain[5000:]  # Burn-in.
     ch_sh = np.shape(chain)
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
     theta_guess = np.mean(chain_flat, axis=0)
     # Run inference the second time.
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_guess=theta_guess, tag=f'{noisetag}_1')
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_guess=theta_guess, tag=f'{noisetag}{tag}_1')
 
 
 def plot_non_uniform_noise_comparison():
