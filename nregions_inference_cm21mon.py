@@ -246,8 +246,7 @@ def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000,
 
 def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag="", 
         unoise_K=None, tint=None, times=None, lmax=None, nside=None, 
-        cm21_pars=None, theta_fg_guess=None, theta_21_guess=None, 
-        cm21_priors=None):
+        cm21_pars=None, cm21_priors=None, theta_fg_guess=None):
     """
     Run Nregions inference on observations of the degraded GSMA, with either 
     uniform or radiometric noise.
@@ -267,13 +266,12 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag=""
     if return_model:
         return model
     
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, theta_21_guess=theta_21_guess, cm21_priors=cm21_priors, tag=noisetag)
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, theta_21_guess=cm21_pars, cm21_priors=cm21_priors, tag=noisetag)
 
 
 def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="", 
         unoise_K=None, tint=None, times=None, lmax=None, nside=None, 
-        cm21_pars=None, theta_fg_guess=None, theta_21_guess=None, 
-        cm21_priors=None):
+        cm21_pars=None, cm21_priors=None, theta_fg_guess=None):
     """
     Do the same as main, but run inference with larger errors, then with smaller
     errors, starting at the mean inferred parameter position of the prior run.
@@ -292,7 +290,7 @@ def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="",
     model = FM.genopt_nregions_cm21_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
 
     # Run inference the first time.
-    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, theta_21_guess=theta_21_guess, cm21_priors=cm21_priors, tag=f'{noisetag}{tag}_0')
+    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, theta_21_guess=cm21_pars, cm21_priors=cm21_priors, tag=f'{noisetag}{tag}_0')
 
     chain = np.load(f"saves/Nregs_pl_gsmalo_cm21mon/{Nregions}reg{noisetag}{tag}_0.npy")
     chain = chain[5000:]  # Burn-in.
@@ -300,7 +298,7 @@ def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="",
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
     theta_guess = np.mean(chain_flat, axis=0)
     # Run inference the second time.
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess[:-3], theta_21_guess=theta_guess[-3:], cm21_priors=cm21_priors, tag=f'{noisetag}{tag}_1')
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess[:-3], theta_21_guess=cm21_pars, cm21_priors=cm21_priors, tag=f'{noisetag}{tag}_1')
 
 
 def plot_non_uniform_noise_comparison():
