@@ -74,7 +74,6 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
     if cm21_pars is None:
         cm21_pars = default_pars["cm21_pars"]
 
-    npix = hp.nside2npix(nside)
     narrow_cosbeam = lambda x: BF.beam_cos(x, theta0=0.8)
     fg_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax)
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_pars)
