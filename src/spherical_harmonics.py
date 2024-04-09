@@ -195,7 +195,7 @@ def calc_spherical_harmonic_matrix(nside=8, lmax=20):
     #So then the matrix for the spherical harmonics
     npix = healpy.pixelfunc.nside2npix(nside)
     nalm = healpy.Alm.getsize(lmax)
-    print(npix, nalm)
+    print("calc_spherical_harmonic_matrix npix, nalm :", npix, nalm)
 
     # Construct the complex version of the Ylm
     Y_matrix_real = np.zeros((npix, nalm))
