@@ -305,7 +305,6 @@ def main_threerun(Nregions=10, steps=100000, uniform_noise=True, tag="",
     ch_sh = np.shape(chain)
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
     theta_guess = np.mean(chain_flat, axis=0)
-    theta_guess = np.array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1.])
     # Run inference the second time.
     inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess, tag=f'{noisetag}{tag}_1')
 
