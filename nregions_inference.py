@@ -15,6 +15,7 @@ import healpy as hp
 import matplotlib.pyplot as plt
 import numpy as np
 from emcee import EnsembleSampler
+from chainconsumer import ChainConsumer
 
 import src.forward_model as FM
 import src.beam_functions as BF
@@ -274,6 +275,50 @@ def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="",
     theta_guess = np.mean(chain_flat, axis=0)
     # Run inference the second time.
     inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess, tag=f'{noisetag}{tag}_1')
+
+
+def main_threerun(Nregions=10, steps=100000, uniform_noise=True, tag="", 
+        unoise_K=None, tint=None, times=None, lmax=None, nside=None, 
+        theta_fg_guess=None):
+    """
+    Do the same as main, but run inference with larger errors, then with smaller
+    errors, starting at the mean inferred parameter position of the prior run.
+    """
+    if uniform_noise:
+        noisetag = '_unoise'
+    elif not uniform_noise:
+        noisetag = '_radnoise'
+
+    dnoisy, noise_covar, mat_A, mat_Y, pars = fiducial_obs(uniform_noise, unoise_K, tint, times, lmax, nside)
+    np.save(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_data.npy", dnoisy.vector)
+    with open(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_pars.pkl", "wb") as f:
+        dump(pars, f)
+
+    mask_maps, inference_bounds = mask_split(Nregions=Nregions)
+    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
+
+    # Run inference the first time.
+    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, tag=f'{noisetag}{tag}_0')
+
+    chain = np.load(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_0.npy")
+    chain = chain[15000:]  # Burn-in.
+    ch_sh = np.shape(chain)
+    chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
+    theta_guess = np.mean(chain_flat, axis=0)
+    theta_guess = np.array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1.])
+    # Run inference the second time.
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess, tag=f'{noisetag}{tag}_1')
+
+    chain = np.load(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_1.npy")
+    chain = chain[15000:]  # Burn-in.
+    ch_sh = np.shape(chain)
+    chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
+    c = ChainConsumer()
+    c.add_chain(chain_flat)
+    analysis_dict = c.analysis.get_summary(squeeze=True)
+    theta_guess = np.array([val[1] for val in analysis_dict.values()])
+    # Run inference the third time.
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess, tag=f'{noisetag}{tag}_2')
 
 
 def plot_non_uniform_noise_comparison():
