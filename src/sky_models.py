@@ -369,7 +369,7 @@ def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False):
         nu = [nu]
     
     #generate the map
-    gsma_map = [(T_408 - T_CMB)*(freq/408)**(-indexes) for freq in nu]
+    gsma_map = [(T_408 - T_CMB)*(freq/408)**(-indexes) + T_CMB for freq in nu]
     
     #degrade the foreground map to the size we want
     if nside is not None:
@@ -383,7 +383,7 @@ def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False):
     #convert the alm back to healpix maps
     if map:
         reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
-        return map_real_alm.flatten(), reconstucted_map
+        return map_real_alm.flatten(), np.array(reconstucted_map)
     return map_real_alm.flatten()
 
 def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
