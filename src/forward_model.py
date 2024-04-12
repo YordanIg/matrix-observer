@@ -3,6 +3,7 @@ The entire forward-modelling formalism brought together.
 """
 import numpy as np
 
+from anstey.generate import T_CMB
 import src.coordinates as CO
 import src.spherical_harmonics as SH
 import src.beam_functions as BF
@@ -253,7 +254,7 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
 
     # Precompute the mask -> observation vectors.
     observation_invmat_Y_product = observation_mat @ invmat_Y
-    masked_basemaps = np.array([mask*base_map for mask in masks])
+    masked_basemaps = np.array([mask*(base_map-T_CMB) for mask in masks])
     mask_vecs = np.array([bl@mb for bl, mb in zip(observation_invmat_Y_product.block, masked_basemaps)])
 
     # Precompute the normalised nuarr.
@@ -272,7 +273,7 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
             data_term = np.zeros_like(data)
             for i in range(len(nuarr)):
                 data_term[i*block_len:(i+1)*block_len] = mask_vec*nuarr_norm[i]**(-indx)
-            data += data_term
+            data += data_term + T_CMB
         return data
 
     return model
