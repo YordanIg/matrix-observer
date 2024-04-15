@@ -3,6 +3,7 @@ Implementation of the Nregions models of Anstey et. al. (2021, 2023) and Pagano
 et. al. (2024).
 """
 import numpy as np
+T_CMB = 2.725
 
 def pix_forward_model_pl(powers, nuarr, base_map, masks):
     """
@@ -29,8 +30,8 @@ def pix_forward_model_pl(powers, nuarr, base_map, masks):
     
     result = np.zeros(shape=len(nuarr)*len(base_map))
     for power, mask in zip(powers, masks):
-        masked_basemap = mask*base_map
+        masked_basemap = mask*(base_map - T_CMB)
         single_term = [masked_basemap*(nu/408)**(-power) for nu in nuarr]
         single_term = np.array(single_term).flatten()
         result += single_term
-    return result
+    return result + T_CMB
