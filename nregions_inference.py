@@ -88,7 +88,7 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
     return dnoisy, noise_covar, mat_A, mat_Y, params
 
 
-def mask_split(Nregions=9, visualise=False):
+def mask_split(Nregions=9, visualise=False, nside=None):
     """
     Split the degraded GSMA sky into Nregions, returning as a tuple:
         (mask_maps, inference_bounds)
@@ -96,8 +96,13 @@ def mask_split(Nregions=9, visualise=False):
     that this is a bit of a misnomer: often the inferred parameters will
     actually not be bounded by these inference bounds.
     """
+    if nside is None:
+        nside = default_pars['nside']
     # Split the sky into the Nregions.
-    indx = np.load("anstey/indexes_16.npy")
+    try:
+        indx = np.load(f"anstey/indexes_{nside}.npy")
+    except:
+        raise ValueError(f"indexes for GSMA with nside={nside} have not been generated.")
     if visualise:
         hp.mollview(indx[0], title="GSMA lo 408 MHz amplitudes")
         plt.show()
@@ -237,12 +242,12 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag=""
     with open(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_pars.pkl", "wb") as f:
         dump(pars, f)
 
-    mask_maps, inference_bounds = mask_split(Nregions=Nregions)
+    mask_maps, inference_bounds = mask_split(Nregions=Nregions, nside=nside)
     model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
     if return_model:
         return model
     
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, tag=noisetag)
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, tag=f'{noisetag}{tag}')
 
 
 def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="", 
@@ -262,7 +267,7 @@ def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="",
     with open(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_pars.pkl", "wb") as f:
         dump(pars, f)
 
-    mask_maps, inference_bounds = mask_split(Nregions=Nregions)
+    mask_maps, inference_bounds = mask_split(Nregions=Nregions, nside=nside)
     model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
 
     # Run inference the first time.
@@ -294,7 +299,7 @@ def main_threerun(Nregions=10, pre_steps=20000, steps=100000, uniform_noise=True
     with open(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_pars.pkl", "wb") as f:
         dump(pars, f)
 
-    mask_maps, inference_bounds = mask_split(Nregions=Nregions)
+    mask_maps, inference_bounds = mask_split(Nregions=Nregions, nside=nside)
     model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
 
     # Run inference the first time.
