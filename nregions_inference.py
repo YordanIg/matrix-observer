@@ -277,7 +277,7 @@ def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="",
     inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess, tag=f'{noisetag}{tag}_1')
 
 
-def main_threerun(Nregions=10, steps=100000, uniform_noise=True, tag="", 
+def main_threerun(Nregions=10, pre_steps=20000, steps=100000, uniform_noise=True, tag="", 
         unoise_K=None, tint=None, times=None, lmax=None, nside=None, 
         theta_fg_guess=None):
     """
@@ -298,7 +298,7 @@ def main_threerun(Nregions=10, steps=100000, uniform_noise=True, tag="",
     model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
 
     # Run inference the first time.
-    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=steps, theta_fg_guess=theta_fg_guess, tag=f'{noisetag}{tag}_0')
+    inference(inference_bounds, noise_covar*100, dnoisy, model, steps=pre_steps, theta_fg_guess=theta_fg_guess, tag=f'{noisetag}{tag}_0')
 
     chain = np.load(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_0.npy")
     chain = chain[15000:]  # Burn-in.
@@ -306,7 +306,7 @@ def main_threerun(Nregions=10, steps=100000, uniform_noise=True, tag="",
     chain_flat = np.reshape(chain, (ch_sh[0]*ch_sh[1], ch_sh[2]))  # Flatten chain.
     theta_guess = np.mean(chain_flat, axis=0)
     # Run inference the second time.
-    inference(inference_bounds, noise_covar, dnoisy, model, steps=steps, theta_fg_guess=theta_guess, tag=f'{noisetag}{tag}_1')
+    inference(inference_bounds, noise_covar, dnoisy, model, steps=pre_steps, theta_fg_guess=theta_guess, tag=f'{noisetag}{tag}_1')
 
     chain = np.load(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_1.npy")
     chain = chain[15000:]  # Burn-in.
