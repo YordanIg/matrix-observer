@@ -273,8 +273,8 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
             data_term = np.zeros_like(data)
             for i in range(len(nuarr)):
                 data_term[i*block_len:(i+1)*block_len] = mask_vec*nuarr_norm[i]**(-indx)
-            data += data_term + T_CMB
-        return data
+            data += data_term
+        return data + T_CMB
 
     return model
 
