@@ -243,7 +243,7 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag=""
         dump(pars, f)
 
     mask_maps, inference_bounds = mask_split(Nregions=Nregions, nside=nside)
-    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
+    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y, nside=nside, lmax=lmax)
     if return_model:
         return model
     
@@ -289,6 +289,9 @@ def main_threerun(Nregions=10, pre_steps=20000, steps=100000, uniform_noise=True
     Do the same as main, but run inference with larger errors, then with smaller
     errors, starting at the mean inferred parameter position of the prior run.
     """
+    if nside is None:
+        nside = default_pars['nside']
+
     if uniform_noise:
         noisetag = '_unoise'
     elif not uniform_noise:
@@ -300,7 +303,7 @@ def main_threerun(Nregions=10, pre_steps=20000, steps=100000, uniform_noise=True
         dump(pars, f)
 
     mask_maps, inference_bounds = mask_split(Nregions=Nregions, nside=nside)
-    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y)
+    model = FM.genopt_nregions_pl_forward_model(nuarr=nuarr, masks=mask_maps, observation_mat=mat_A, spherical_harmonic_mat=mat_Y, nside=nside, lmax=lmax)
 
     # Run inference the first time.
     inference(inference_bounds, noise_covar*100, dnoisy, model, steps=pre_steps, theta_fg_guess=theta_fg_guess, tag=f'{noisetag}{tag}_0')
