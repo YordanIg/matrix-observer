@@ -218,7 +218,7 @@ def generate_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_
 
     return model
 
-def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_harmonic_mat):
+def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_harmonic_mat, nside=16, lmax=32):
     """
     Return an OPTIMIZED function that forward-models (without noise) the 
     Nregions Anstey power-law only model, based on the degraded GSMA foreground 
@@ -230,9 +230,8 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
         model is a function of a list of power law indices, one for each of the
         sky regions of the model.
     """
-    lmax = 32
     # Load the base map.
-    base_map, _ = np.load('anstey/indexes_16.npy')
+    base_map, _ = np.load(f'anstey/indexes_{nside}.npy')
     if len(base_map) != np.shape(masks)[1]:
         raise ValueError("mask pixel number should match base map pixel number.")
     
