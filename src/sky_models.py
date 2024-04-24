@@ -360,7 +360,7 @@ def foreground_gdsm_galcut_alm(nu, lmax=40, nside=None, map=False):
     return map_real_alm.flatten()
 
 
-def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False):
+def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, original_map=False):
     T_CMB = 2.725
     #are we dealing with multiple frequencies or not
     try:
@@ -384,6 +384,8 @@ def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False):
     if map:
         reconstucted_map = [healpy.sphtfunc.alm2map(alms, nside=nside) for alms in map_alm]
         return map_real_alm.flatten(), np.array(reconstucted_map)
+    elif original_map:
+        return map_real_alm.flatten(), np.array(gsma_map)
     return map_real_alm.flatten()
 
 def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
@@ -412,7 +414,7 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 nside=nside, map=map)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -431,10 +433,22 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False):
     or will be equal to 16, the native resolution of the GSMA lo.
     '''
     #load the gsma indexes
+    if nside is None:
+        nside=16
     try:
-        T_408, indexes = np.load('/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes_16.npy')
+        T_408, indexes = np.load(f'/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes_{nside}.npy')
     except:
-        raise Exception("Indexes for the Anstey sky lo have not been "\
+        raise Exception(f"Indexes for the Anstey sky nside={nside} have not been "\
                         +"generated.")
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
-                                nside=nside, map=map)
+                                map=map, original_map=original_map)
+
+def foreground_gsma_nsidelo(nu, nside=None):
+    """
+    Simply returns the degraded GSMA map in pixel space for the frequenc(y/ies)
+    nu.
+    """
+    _, gsma_map = foreground_gsma_alm_nsidelo(nu, original_map=True, nside=nside)
+    if gsma_map.shape[0] == 1:
+        return gsma_map.flatten()
+    return gsma_map
