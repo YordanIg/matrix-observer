@@ -291,6 +291,8 @@ def main_threerun(Nregions=10, pre_steps=20000, steps=100000, uniform_noise=True
     """
     if nside is None:
         nside = default_pars['nside']
+    if lmax is None:
+        lmax = default_pars['lmax']
 
     if uniform_noise:
         noisetag = '_unoise'
