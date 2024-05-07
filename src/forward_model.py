@@ -175,7 +175,7 @@ def calc_observation_matrix_all_pix_multifreq(nuarr, nside, lmax, Ntau,
 # Anstey foreground modelling
 ################################################################################
 
-def generate_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_harmonic_mat):
+def generate_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_harmonic_mat, nside=16, lmax=32):
     """
     Return a function that forward-models (without noise) the Nregions Anstey 
     power-law only model, based on the degraded GSMA foreground model. Note that 
@@ -187,9 +187,8 @@ def generate_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_
         model is a function of a list of power law indices, one for each of the
         sky regions of the model.
     """
-    lmax = 32
     # Load the base map.
-    base_map, _ = np.load('anstey/indexes_16.npy')
+    base_map, _ = np.load(f'anstey/indexes_{nside}.npy')
     if len(base_map) != np.shape(masks)[1]:
         raise ValueError("mask pixel number should match base map pixel number.")
     
@@ -250,11 +249,14 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
     mat_Y = spherical_harmonic_mat
     invmat_Y_block = np.linalg.pinv(mat_Y.block[0])
     invmat_Y = BlockMatrix(invmat_Y_block, mode='block', nblock=len(nuarr))
-
+    print(" :: shape masks=", len(masks))
     # Precompute the mask -> observation vectors.
     observation_invmat_Y_product = observation_mat @ invmat_Y
     masked_basemaps = np.array([mask*(base_map-T_CMB) for mask in masks])
-    mask_vecs = np.array([bl@mb for bl, mb in zip(observation_invmat_Y_product.block, masked_basemaps)])
+    print(" :: shape masked_basemaps=", len(masked_basemaps))
+    #mask_vecs = np.array([bl@mb for bl, mb in zip(observation_invmat_Y_product.block, masked_basemaps)])
+    mask_vecs = np.array([observation_invmat_Y_product.block[0]@mb for mb in masked_basemaps])
+    print(" :: shape mask_vecs=", np.shape(mask_vecs))
 
     # Precompute the normalised nuarr.
     nuarr_norm = nuarr/408
@@ -266,7 +268,7 @@ def genopt_nregions_pl_forward_model(nuarr, masks, observation_mat, spherical_ha
     @jit
     def model(theta):
         if len(theta) != len(mask_vecs):
-            raise ValueError("invalid theta input dimension")
+            raise ValueError(f"theta is len {len(theta)} but should match mask list len {len(mask_vecs)}")
         data = np.zeros(shape=data_len)
         for mask_vec, indx in zip(mask_vecs, theta):
             data_term = np.zeros_like(data)
