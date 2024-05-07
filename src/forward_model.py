@@ -82,7 +82,10 @@ def calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=None, lats=
     coords = [CO.obs_zenith_drift_scan(lat, lon=0, times=times) for lat in lats]
     mat_G = calc_averaging_matrix(Ntau=Ntau, Nt=len(times)*len(lats))
     mat_P = CO.calc_pointing_matrix(*coords, nside=nside, pixels=False)
-    mat_Y = SH.calc_spherical_harmonic_matrix(nside, lmax)
+    try:
+        mat_Y = np.load(f"saves/ylm_mat_nside{nside}_lmax{lmax}.npy")
+    except:
+        mat_Y = SH.calc_spherical_harmonic_matrix(nside, lmax)
     mat_B = BF.calc_beam_matrix(nside, lmax, beam_use=beam_use)
     if return_mat:
         return mat_G @ mat_P @ mat_Y @ mat_B, (mat_G, mat_P, mat_Y, mat_B)
