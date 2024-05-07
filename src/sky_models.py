@@ -11,9 +11,11 @@ import healpy
 import numpy as np
 from pygdsm import GlobalSkyModel2016
 from numba import jit
+from anstey.generate import T_CMB
 
+import src.spherical_harmonics as SH
 from src.blockmat import BlockMatrix, BlockVector
-from src.spherical_harmonics import RealSphericalHarmonics
+from src.spherical_harmonics import RealSphericalHarmonics, calc_spherical_harmonic_matrix
 
 RS = RealSphericalHarmonics()
 
@@ -360,25 +362,28 @@ def foreground_gdsm_galcut_alm(nu, lmax=40, nside=None, map=False):
     return map_real_alm.flatten()
 
 
-def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, original_map=False):
-    T_CMB = 2.725
+def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, original_map=False, use_mat_Y=False):
     #are we dealing with multiple frequencies or not
     try:
         len(nu)
     except:
         nu = [nu]
-    
+    nside = healpy.npix2nside(len(T_408))
+
     #generate the map
     gsma_map = [(T_408 - T_CMB)*(freq/408)**(-indexes) + T_CMB for freq in nu]
-    
-    #degrade the foreground map to the size we want
-    if nside is not None:
-        gsma_map = healpy.pixelfunc.ud_grade(gsma_map, nside_out=nside)
-    nside = healpy.npix2nside(np.shape(gsma_map)[-1])
 
     #convert to (real) alm, dealing with both multi and single freq cases
-    map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gsma_map]
-    map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
+    if use_mat_Y:
+        try:
+            mat_Y = np.load(f"saves/ylm_mat_nside{nside}_lmax{lmax}.npy")
+        except:
+            mat_Y = calc_spherical_harmonic_matrix(nside=nside, lmax=lmax)
+        inv_mat_Y = np.linalg.pinv(mat_Y)
+        map_real_alm = np.array([inv_mat_Y @ m for m in gsma_map])
+    elif not use_mat_Y:
+        map_alm = [healpy.sphtfunc.map2alm(m, lmax=lmax) for m in gsma_map]
+        map_real_alm = np.array([RS.complex2RealALM(alms) for alms in map_alm])
 
     #convert the alm back to healpix maps
     if map:
@@ -414,7 +419,7 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 nside=nside, map=map)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -441,7 +446,7 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
         raise Exception(f"Indexes for the Anstey sky nside={nside} have not been "\
                         +"generated.")
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
-                                map=map, original_map=original_map)
+                                map=map, original_map=original_map, use_mat_Y=use_mat_Y)
 
 def foreground_gsma_nsidelo(nu, nside=None):
     """
