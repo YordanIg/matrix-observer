@@ -4,7 +4,7 @@ et. al. (2024).
 """
 import numpy as np
 from numba import jit
-T_CMB = 2.725
+from anstey.generate import T_CMB
 
 def pix_forward_model_pl(powers, nuarr, base_map, masks):
     """
