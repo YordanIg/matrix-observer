@@ -374,6 +374,7 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
     if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
         raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
     Nlmax = RS.get_size(lmax=lmax)
+    Nnuarr = len(nuarr)
     
     def model(theta):
         # Compute the alm vector.
@@ -386,11 +387,13 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
             alm_term = A*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
             alm_blocks.append(alm_term)
         alm_blocks = np.array(alm_blocks)
+
         final_alm_vec = []
-        for n in range(Nlmax):
+        for n in range(Nnuarr):
             final_alm_vec.append(alm_blocks[:,n])
         final_alm_vec = np.array(final_alm_vec)
-        final_alm_vec.flatten()
+
+        final_alm_vec = final_alm_vec.flatten()
 
         # Multiply this by the observation matrix.
         dmod = observation_mat @ final_alm_vec
