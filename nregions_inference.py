@@ -30,7 +30,7 @@ nuarr = np.linspace(50,100,Nfreq)
 
 # Default parameters of the observation and fiducial sky.
 default_pars = {
-    "times"  : np.linspace(0,24,3, endpoint=False),
+    "times"  : np.linspace(0,6,3, endpoint=False),
     "unoise" : 1,                                         # Uniform noise level in Kelvin (only used if uniform_noise=True).
     "tint"   : 1,                                         # Total integration time in hours (only used if uniform_noise=False).
     "lmax"   : 32,
@@ -38,7 +38,7 @@ default_pars = {
 }
 
 def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None, 
-                 lmax=None, nside=None):
+                 Ntau=None, lmax=None, nside=None):
     """
     Forward model the fiducial degraded GSMA.
 
@@ -50,6 +50,8 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         integration time.
     times
         Observation times in hours. Defaults to default_pars["times"].
+    Ntau
+        Number of observation bins. Defaults to len(times).
     lmax, nside
         Lmax and Nside of the fiducial sky. Defults to 
         default_pars["lmax/nside"].
@@ -60,30 +62,34 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         tint = default_pars["tint"]
     if times is None:
         times = default_pars["times"]
+    if Ntau is None:
+        Ntau = len(times)
     if lmax is None:
         lmax = default_pars["lmax"]
     if nside is None:
         nside = default_pars["nside"]
 
     narrow_cosbeam = lambda x: BF.beam_cos(x, theta0=0.8)
-    fg_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax)
+    fg_alm, og_map = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, use_mat_Y=True, nside=nside, original_map=True)
 
     times = np.linspace(0,24,3, endpoint=False)
-    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=len(times), times=times, beam_use=narrow_cosbeam, return_mat=True)
+    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=Ntau, times=times, beam_use=narrow_cosbeam, return_mat=True)
 
     d = mat_A@(fg_alm)
     if uniform_noise:
         dnoisy, noise_covar = SM.add_noise_uniform(temps=d, err=unoise_K)
     elif not uniform_noise:
-        dnoisy, noise_covar = SM.add_noise(temps=d, dnu=1, Ntau=len(times), t_int=tint)
+        dnoisy, noise_covar = SM.add_noise(temps=d, dnu=1, Ntau=Ntau, t_int=tint)
 
     params = {
         "uniform_noise" : uniform_noise,
         "unoise" : unoise_K,
         "tint"   : tint,
         "times"  : times,
+        "Ntau"   : Ntau,
         "lmax"   : lmax,
-        "nside"  : nside
+        "nside"  : nside,
+        "og" : og_map
     }
     return dnoisy, noise_covar, mat_A, mat_Y, params
 
@@ -226,7 +232,7 @@ def inference(inference_bounds, noise_covar, dnoisy, model, steps=10000,
 
 
 def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag="", 
-        unoise_K=None, tint=None, times=None, lmax=None, nside=None, 
+        unoise_K=None, tint=None, times=None, Ntau=None, lmax=None, nside=None, 
         theta_fg_guess=None):
     """
     Run Nregions inference on observations of the degraded GSMA, with either 
@@ -237,7 +243,7 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag=""
     elif not uniform_noise:
         noisetag = '_radnoise'
 
-    dnoisy, noise_covar, mat_A, mat_Y, pars = fiducial_obs(uniform_noise, unoise_K, tint, times, lmax, nside)
+    dnoisy, noise_covar, mat_A, mat_Y, pars = fiducial_obs(uniform_noise=uniform_noise, unoise_K=unoise_K, tint=tint, times=times, Ntau=Ntau, lmax=lmax, nside=nside)
     np.save(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_data.npy", dnoisy.vector)
     with open(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_pars.pkl", "wb") as f:
         dump(pars, f)
@@ -251,7 +257,7 @@ def main(Nregions=6, steps=10000, return_model=False, uniform_noise=True, tag=""
 
 
 def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="", 
-        unoise_K=None, tint=None, times=None, lmax=None, nside=None, 
+        unoise_K=None, tint=None, times=None, Ntau=None, lmax=None, nside=None, 
         theta_fg_guess=None):
     """
     Do the same as main, but run inference with larger errors, then with smaller
@@ -262,7 +268,7 @@ def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="",
     elif not uniform_noise:
         noisetag = '_radnoise'
 
-    dnoisy, noise_covar, mat_A, mat_Y, pars = fiducial_obs(uniform_noise, unoise_K, tint, times, lmax, nside)
+    dnoisy, noise_covar, mat_A, mat_Y, pars = fiducial_obs(uniform_noise=uniform_noise, unoise_K=unoise_K, tint=tint, times=times, Ntau=Ntau, lmax=lmax, nside=nside)
     np.save(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_data.npy", dnoisy.vector)
     with open(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_pars.pkl", "wb") as f:
         dump(pars, f)
@@ -283,7 +289,7 @@ def main_tworun(Nregions=6, steps=10000, uniform_noise=True, tag="",
 
 
 def main_threerun(Nregions=10, pre_steps=20000, steps=100000, uniform_noise=True, tag="", 
-        unoise_K=None, tint=None, times=None, lmax=None, nside=None, 
+        unoise_K=None, tint=None, times=None, Ntau=None, lmax=None, nside=None, 
         theta_fg_guess=None):
     """
     Do the same as main, but run inference with larger errors, then with smaller
@@ -299,7 +305,7 @@ def main_threerun(Nregions=10, pre_steps=20000, steps=100000, uniform_noise=True
     elif not uniform_noise:
         noisetag = '_radnoise'
 
-    dnoisy, noise_covar, mat_A, mat_Y, pars = fiducial_obs(uniform_noise, unoise_K, tint, times, lmax, nside)
+    dnoisy, noise_covar, mat_A, mat_Y, pars = fiducial_obs(uniform_noise=uniform_noise, unoise_K=unoise_K, tint=tint, times=times, Ntau=Ntau, lmax=lmax, nside=nside)
     np.save(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_data.npy", dnoisy.vector)
     with open(f"saves/Nregs_pl_gsmalo/{Nregions}reg{noisetag}{tag}_pars.pkl", "wb") as f:
         dump(pars, f)
