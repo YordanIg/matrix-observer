@@ -352,3 +352,48 @@ def genopt_nregions_cm21_pl_forward_model(nuarr, masks, observation_mat,
         return data
 
     return model
+
+
+################################################################################
+# Alm polynomial foreground modelling.
+################################################################################
+
+def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
+    """
+    Return a function that forward-models (without noise) the 
+    Alm polynomial model. Note that this is a foreground only model.
+    
+    Returns
+    -------
+    model : function
+        model is a function of a list of power law indices and runnings for
+        each of the modelled sky alm up to and including lmax. These are ordered
+        like (c_{00,0}, c_{00,1}, ..., c_{1-1,0}, c_{1-1,1}, ...)
+        for c_{lm,n}, where n is the polynomial index.
+    """
+    if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
+        raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
+    Nlmax = RS.get_size(lmax=lmax)
+    
+    def model(theta):
+        # Compute the alm vector.
+        theta_blocks = np.reshape(theta, (Nlmax, Npoly))  # :: For jit, create and populate empty array of this size.
+        alm_blocks = []
+        for block in theta_blocks:
+            A, alpha = block[:2]
+            zetas    = block[2:]
+            exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
+            alm_term = A*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
+            alm_blocks.append(alm_term)
+        alm_blocks = np.array(alm_blocks)
+        final_alm_vec = []
+        for n in range(Nlmax):
+            final_alm_vec.append(alm_blocks[:,n])
+        final_alm_vec = np.array(final_alm_vec)
+        final_alm_vec.flatten()
+
+        # Multiply this by the observation matrix.
+        dmod = observation_mat @ final_alm_vec
+        return dmod
+
+    return model
