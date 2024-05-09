@@ -397,6 +397,6 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
 
         # Multiply this by the observation matrix.
         dmod = observation_mat @ final_alm_vec
-        return dmod
+        return dmod.vector
 
     return model
