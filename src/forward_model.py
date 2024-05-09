@@ -378,7 +378,7 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
     
     def model(theta):
         # Compute the alm vector.
-        theta_blocks = np.reshape(theta, (Nlmax, Npoly))  # :: For jit, create and populate empty array of this size.
+        theta_blocks = np.reshape(theta, (Nlmax, Npoly))
         alm_blocks = []
         for block in theta_blocks:
             A, alpha = block[:2]
@@ -398,5 +398,49 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
         # Multiply this by the observation matrix.
         dmod = observation_mat @ final_alm_vec
         return dmod.vector
+
+    return model
+
+def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
+    """
+    Return a function that forward-models (without noise) the 
+    Alm polynomial model. Note that this is a foreground only model.
+    
+    Returns
+    -------
+    model : function
+        model is a function of a list of power law indices and runnings for
+        each of the modelled sky alm up to and including lmax. These are ordered
+        like (c_{00,0}, c_{00,1}, ..., c_{1-1,0}, c_{1-1,1}, ...)
+        for c_{lm,n}, where n is the polynomial index.
+    """
+    if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
+        raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
+    observation_mat = observation_mat.matrix
+    Nlmax = RS.get_size(lmax=lmax)
+    Nnuarr = len(nuarr)
+    
+    @jit
+    def model(theta):
+        # Compute the alm vector.
+        theta_blocks = np.reshape(theta, (Nlmax, Npoly))
+        alm_blocks = np.zeros((Nlmax, Nnuarr))
+        for ii, block in enumerate(theta_blocks):
+            A, alpha = block[:2]
+            zetas    = np.zeros(len(block)-2)
+            zetas    = block[2:]
+
+            exponent = np.zeros((len(zetas), Nnuarr))
+            for i in range(len(zetas)):
+                exponent[i,:] = zetas[i]*np.log(nuarr/60)**(i+2)
+            
+            alm_term = A*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
+            alm_blocks[ii,:] = alm_term
+
+        final_alm_vec = alm_blocks.T
+
+        # Multiply this by the observation matrix.
+        dmod = observation_mat @ final_alm_vec.flatten()
+        return dmod
 
     return model
