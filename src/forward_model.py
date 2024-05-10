@@ -379,6 +379,7 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
     def model(theta):
         # Compute the alm vector.
         theta_blocks = np.reshape(theta, (Nlmax, Npoly))
+        theta_blocks[:,0] *= 1000
         alm_blocks = []
         for block in theta_blocks:
             A, alpha = block[:2]
@@ -424,6 +425,7 @@ def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
     def model(theta):
         # Compute the alm vector.
         theta_blocks = np.reshape(theta, (Nlmax, Npoly))
+        theta_blocks[:,0] *= 1000
         alm_blocks = np.zeros((Nlmax, Nnuarr))
         for ii, block in enumerate(theta_blocks):
             A, alpha = block[:2]
