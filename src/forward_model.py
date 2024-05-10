@@ -379,13 +379,12 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
     def model(theta):
         # Compute the alm vector.
         theta_blocks = np.reshape(theta, (Nlmax, Npoly))
-        theta_blocks[:,0] *= 1000
         alm_blocks = []
         for block in theta_blocks:
             A, alpha = block[:2]
             zetas    = block[2:]
             exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
-            alm_term = A*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
+            alm_term = (A*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
             alm_blocks.append(alm_term)
         alm_blocks = np.array(alm_blocks)
 
@@ -425,7 +424,6 @@ def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
     def model(theta):
         # Compute the alm vector.
         theta_blocks = np.reshape(theta, (Nlmax, Npoly))
-        theta_blocks[:,0] *= 1000
         alm_blocks = np.zeros((Nlmax, Nnuarr))
         for ii, block in enumerate(theta_blocks):
             A, alpha = block[:2]
@@ -436,7 +434,7 @@ def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
             for i in range(len(zetas)):
                 exponent[i,:] = zetas[i]*np.log(nuarr/60)**(i+2)
             
-            alm_term = A*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
+            alm_term = (A*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
             alm_blocks[ii,:] = alm_term
 
         final_alm_vec = alm_blocks.T
