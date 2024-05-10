@@ -34,11 +34,12 @@ default_pars = {
     "unoise" : 1,                                         # Uniform noise level in Kelvin (only used if uniform_noise=True).
     "tint"   : 1,                                         # Total integration time in hours (only used if uniform_noise=False).
     "lmax"   : 32,
-    "nside"  : 16
+    "nside"  : 16,
+    "lats"   : [-26]
 }
 
 def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None, 
-                 Ntau=None, lmax=None, nside=None):
+                 Ntau=None, lmax=None, nside=None, lats=None):
     """
     Forward model the fiducial degraded GSMA.
 
@@ -68,12 +69,14 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         lmax = default_pars["lmax"]
     if nside is None:
         nside = default_pars["nside"]
+    if lats is None:
+        lats = default_pars["lats"]
 
     narrow_cosbeam = lambda x: BF.beam_cos(x, theta0=0.8)
     fg_alm, og_map = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, use_mat_Y=True, nside=nside, original_map=True)
 
     times = np.linspace(0,24,3, endpoint=False)
-    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=Ntau, times=times, beam_use=narrow_cosbeam, return_mat=True)
+    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
 
     d = mat_A@(fg_alm)
     if uniform_noise:
@@ -151,34 +154,48 @@ def log_likelihood(theta, y, yerr, model):
     chi2 = (y - y_model)**2 / (yerr**2)
     return np.sum(-chi2 / 2)
 
-def log_prior(theta, prior_range):
+def log_prior(theta, prior_pars):
     """
     Log Prior probability
 
         log(prior(theta))
 
         This handles an unnormalised uniform prior
-        within the rectangular bounds given by prior_range.
+        within the rectangular bounds given by prior_pars.
 
         inputs:
         theta - N array of parameter values
-        prior_range - [N,2] array of prior ranges
+        prior_pars - [N,2] array of prior ranges
         i.e. = [[lower1, upper1], ...]
 
-        Returns 0 if theta in prior_range and -inf otherwise
+        Returns 0 if theta in prior_pars and -inf otherwise
     """
 
-    lower =  theta > prior_range[:,0]
-    upper = theta < prior_range[:,1]
-    in_prior_range = all(lower & upper)
+    lower =  theta > prior_pars[:,0]
+    upper = theta < prior_pars[:,1]
+    in_prior_pars = all(lower & upper)
 
     #return prior value
-    if in_prior_range:
+    if in_prior_pars:
         return 0.0
     return -np.inf
 
-def log_posterior(theta, y, yerr, model, prior_range):
-    lp = log_prior(theta, prior_range)
+def log_prior_gauss(theta, prior_pars):
+    """
+    Log Prior probability
+
+        log(prior(theta))
+
+        This handles an unnormalised gaussian prior
+        with the parameters prior_pars = ndarray([(mean, std), (mean, std), ...])
+        for each of the parameters of theta.
+    """
+    means = prior_pars[:,0]
+    stds  = prior_pars[:,1]
+    return np.sum(-.5 * ((theta-means)/stds)**2)
+
+def log_posterior(theta, y, yerr, model, prior_pars):
+    lp = log_prior_gauss(theta, prior_pars)
     if np.isfinite(lp):
         lp += log_likelihood(theta, y, yerr, model)
     return lp
