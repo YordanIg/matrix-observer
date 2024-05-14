@@ -174,6 +174,32 @@ class BlockMatrix:
         if self.block_shape[0] != self.block_shape[1]:
             raise ValueError("diagonal of non-square matrix is undefined.")
         return np.diag(self.matrix)
+    
+    @property
+    def T(self):
+        """
+        Return the transposed block-diagonal matrix.
+        """
+        new_mat = []
+        for block in self._matrix:
+            new_mat.append(block.T)
+        new_mat = np.array(new_mat)
+        new_blockmat = BlockMatrix(mat=new_mat)
+        return new_blockmat
+    
+    @property
+    def inv(self):
+        """
+        Return the inverted block-diagonal matrix if the matrix is square.
+        """
+        if self.block_shape[0] != self.block_shape[1]:
+            raise ValueError("inverse of non-square matrix is undefined.")
+        new_mat = []
+        for block in self._matrix:
+            new_mat.append(np.linalg.inv(block))
+        new_mat = np.array(new_mat)
+        new_blockmat = BlockMatrix(mat=new_mat)
+        return new_blockmat
 
 
 class BlockVector(BlockMatrix):
