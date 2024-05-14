@@ -178,7 +178,7 @@ class RealSphericalHarmonics:
         return result_flag
 
 
-def calc_spherical_harmonic_matrix(nside=8, lmax=20):
+def calc_spherical_harmonic_matrix(nside=8, lmax=20, try_loading=True):
     """
     construct the matrix for the spherical harmonics
     Y_ij = Y_{l_jm_j}(r_i)
@@ -189,12 +189,22 @@ def calc_spherical_harmonic_matrix(nside=8, lmax=20):
 
     map = sum_lm Y * alm
 
+    if try_loading=True, will try loading a pre-calculated ylm matrix.
     """
     RS = RealSphericalHarmonics()
 
     #So then the matrix for the spherical harmonics
     npix = healpy.pixelfunc.nside2npix(nside)
     nalm = healpy.Alm.getsize(lmax)
+
+    save_mat = False
+    if try_loading:
+        try:
+            mat_Y = np.load(f"saves/ylm_mat_nside{nside}_lmax{lmax}.npy")
+            print("successfully loaded spherical_harmonic_matrix npix, nalm :", npix, nalm)
+            return mat_Y
+        except:
+            save_mat = True
     print("calc_spherical_harmonic_matrix npix, nalm :", npix, nalm)
 
     # Construct the complex version of the Ylm
@@ -230,6 +240,8 @@ def calc_spherical_harmonic_matrix(nside=8, lmax=20):
     for i in range(npix):
         Y_real[i,:] = RS.complex2RealALM(Y_complex[i,:])
 
+    if save_mat:
+        np.save(f"saves/ylm_mat_nside{nside}_lmax{lmax}.npy", Y_real)
     return Y_real
 
 
