@@ -375,10 +375,7 @@ def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, ori
 
     #convert to (real) alm, dealing with both multi and single freq cases
     if use_mat_Y:
-        try:
-            mat_Y = np.load(f"saves/ylm_mat_nside{nside}_lmax{lmax}.npy")
-        except:
-            mat_Y = calc_spherical_harmonic_matrix(nside=nside, lmax=lmax)
+        mat_Y = calc_spherical_harmonic_matrix(nside=nside, lmax=lmax, try_loading=True)
         inv_mat_Y = np.linalg.pinv(mat_Y)
         map_real_alm = np.array([inv_mat_Y @ m for m in gsma_map])
     elif not use_mat_Y:
