@@ -8,6 +8,7 @@ matrices and vectors in a way that:
 import numpy as np
 
 class BlockMatrix:
+    _trivial = False
     def __init__(self, mat, mode='block', nblock=None):
         """
         Representation of a block-diagonal matrix with off-diagonal zeros. The 
@@ -46,7 +47,7 @@ class BlockMatrix:
             if nblock is None:
                 raise ValueError("must specify nblock when inputting either a single matrix block or the whole matrix.")
             if mode == 'block':
-
+                self._trivial = True
                 self.block_shape = input_mat_shape
                 mat = np.array([mat for _ in range(nblock)])
             elif mode == 'as-is':
@@ -65,7 +66,10 @@ class BlockMatrix:
         self._matrix = mat
 
     def __repr__(self) -> str:
-        return f"{self.block_shape} x {self.nblock} BlockMatrix"
+        s = f"{self.block_shape} x {self.nblock} BlockMatrix"
+        if self._trivial:
+            s += " (trivial)"
+        return s
 
     def __matmul__(self, other):
         """
@@ -93,11 +97,16 @@ class BlockMatrix:
         if self.mat_shape[1] != other.mat_shape[0]:
             raise ValueError("incompatible matrix shapes.")
         
-        product = []
-        for self_block, other_block in zip(self._matrix, other._matrix):
-            product.append(self_block@other_block)
-        product = np.array(product)
-            
+        # Multiply matrices.
+        if self._trivial and other._trivial:
+            new_block = self.block[0] @ other.block[0]
+            product = np.array([new_block for _ in range(self.nblock)])
+        else:
+            product = []
+            for self_block, other_block in zip(self._matrix, other._matrix):
+                product.append(self_block@other_block)
+            product = np.array(product)
+        
         if np.shape(product)[-1] == 1:
             return BlockVector(product)
         return BlockMatrix(product)
@@ -194,9 +203,13 @@ class BlockMatrix:
         """
         if self.block_shape[0] != self.block_shape[1]:
             raise ValueError("inverse of non-square matrix is undefined.")
-        new_mat = []
-        for block in self._matrix:
-            new_mat.append(np.linalg.inv(block))
+        if self._trivial:
+            new_block = np.linalg.inv(block)
+            new_mat = [new_block for _ in range(self.nblock)]
+        else:
+            new_mat = []
+            for block in self._matrix:
+                new_mat.append(np.linalg.inv(block))
         new_mat = np.array(new_mat)
         new_blockmat = BlockMatrix(mat=new_mat)
         return new_blockmat
