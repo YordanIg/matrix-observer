@@ -71,6 +71,9 @@ class BlockMatrix:
             s += " (trivial)"
         return s
 
+    def __len__(self) -> int:
+        return self.nblock * self.block_shape[0]
+
     def __matmul__(self, other):
         """
         Return a BlockMatrix representation of the product of self and other.
@@ -115,6 +118,15 @@ class BlockMatrix:
         """
         Return a Blockmatrix representation of the sum of self and other.
         """
+        # If other is an ndarray, attempt to interpret it as a Block object.
+        if isinstance(other, np.ndarray) and np.shape(other)[0] == self.mat_shape[1]:
+            if len(np.shape(other)) == 1:
+                other = BlockVector(vec=other, mode='as-is', nblock=self.nblock)
+            elif len(np.shape(other)) == 2:
+                other = BlockMatrix(mat=other, mode='block', nblock=self.nblock)
+            else:
+                raise ValueError("ndarray of incompatible shape for matmul with this Block object.")
+        
         # Check dimensionality is right.
         if self.mat_shape != other.mat_shape:
             raise ValueError("incompatible matrix shapes.")
@@ -128,6 +140,15 @@ class BlockMatrix:
         """
         Return a Blockmatrix representation of the difference of self and other.
         """
+        # If other is an ndarray, attempt to interpret it as a Block object.
+        if isinstance(other, np.ndarray) and np.shape(other)[0] == self.mat_shape[1]:
+            if len(np.shape(other)) == 1:
+                other = BlockVector(vec=other, mode='as-is', nblock=self.nblock)
+            elif len(np.shape(other)) == 2:
+                other = BlockMatrix(mat=other, mode='block', nblock=self.nblock)
+            else:
+                raise ValueError("ndarray of incompatible shape for matmul with this Block object.")
+    
         # Check dimensionality is right.
         if self.mat_shape != other.mat_shape:
             raise ValueError("incompatible matrix shapes.")
