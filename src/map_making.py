@@ -4,7 +4,7 @@ Reversing the forward-modelling process using maximum-likelihood methods.
 import numpy as np
 from src.blockmat import BlockMatrix
 
-def calc_ml_estimator_matrix(mat_A, mat_N, cov=False, delta=None):
+def calc_ml_estimator_matrix(mat_A, mat_N, cov=False, delta=None, cond=False):
     """
     For the general problem 
         d = Aa + n
@@ -21,6 +21,9 @@ def calc_ml_estimator_matrix(mat_A, mat_N, cov=False, delta=None):
     If delta is passed, will L2 regularize by calculating
         W = [ A^{T} N^{-1} A + delta^2]^{-1} A^{T} N^{-1}
     instead.
+    
+    If cond=True, will calculate and print the condition number of the matrix
+    A^{T} N^{-1} A
     """
     block_mats = False
     if isinstance(mat_A, BlockMatrix) and isinstance(mat_N, BlockMatrix):
@@ -38,6 +41,12 @@ def calc_ml_estimator_matrix(mat_A, mat_N, cov=False, delta=None):
     # L2 regularization.
     if delta is not None:
         inv_map_covar += delta**2 *np.identity(len(inv_map_covar))
+    
+    if cond:
+        if block_mats:
+            print("1/condition #:", 1/np.linalg.cond(inv_map_covar.matrix))
+        else:
+            print("1/condition #:", 1/np.linalg.cond(inv_map_covar))
     
     if block_mats:
         map_covar = inv_map_covar.inv
