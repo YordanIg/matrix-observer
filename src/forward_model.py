@@ -467,5 +467,27 @@ def generate_binwise_forward_model(nuarr, observation_mat: BlockMatrix, Npoly=2)
                 polyvec.append(np.sum(to_sum))
         polyvec = np.array(polyvec)
         polyvec = np.exp(polyvec)
-        return polyvec
+        return polyvec + T_CMB
+    return model
+
+def generate_binwise_cm21_forward_model(nuarr, observation_mat: BlockMatrix, Npoly=2):
+    # Determine the number of bins and number of frequencies, and make sure they
+    # are all consistent.
+    assert observation_mat.nblock == len(nuarr)
+    Nfreq = len(nuarr)
+    Nbin  = observation_mat.block_shape[0]
+
+    def model(theta: np.ndarray):
+        theta_fg = theta[:-3]
+        theta_A, theta_nu0, theta_dnu = theta[-3:]
+        cm21_mon = cm21_globalT(nuarr, theta_A, theta_nu0, theta_dnu)
+        theta_fg = np.reshape(theta_fg, (Nbin, Npoly))
+        polyvec = []
+        for binpars in theta_fg:
+            for nu in nuarr:
+                to_sum = [par*np.log(nu/60)**i for i, par in enumerate(binpars)]
+                polyvec.append(np.sum(to_sum))
+        polyvec = np.array(polyvec)
+        polyvec = np.exp(polyvec)
+        return polyvec + cm21_mon + T_CMB
     return model
