@@ -405,6 +405,8 @@ def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
     """
     Return a function that forward-models (without noise) the 
     Alm polynomial model. Note that this is a foreground only model.
+
+    Same as generate_alm_pl_forward_model but uses jit for speedup.
     
     Returns
     -------
@@ -443,4 +445,27 @@ def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
         dmod = observation_mat @ final_alm_vec.flatten()
         return dmod
 
+    return model
+
+
+################################################################################
+# Binwise foreground modelling.
+################################################################################
+def generate_binwise_forward_model(nuarr, observation_mat: BlockMatrix, Npoly=2):
+    # Determine the number of bins and number of frequencies, and make sure they
+    # are all consistent.
+    assert observation_mat.nblock == len(nuarr)
+    Nfreq = len(nuarr)
+    Nbin  = observation_mat.block_shape[0]
+
+    def model(theta: np.ndarray):
+        theta = np.reshape(theta, (Nbin, Npoly))
+        polyvec = []
+        for binpars in theta:
+            for nu in nuarr:
+                to_sum = [par*np.log(nu/60)**i for i, par in enumerate(binpars)]
+                polyvec.append(np.sum(to_sum))
+        polyvec = np.array(polyvec)
+        polyvec = np.exp(polyvec)
+        return polyvec
     return model
