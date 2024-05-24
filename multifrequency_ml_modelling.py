@@ -171,13 +171,13 @@ def nontrivial_obs_memopt():
     # Model and observation params
     nside   = 32
     lmax    = 32
-    lmod    = lmax
-    delta   = 1e-1
+    lmod    = 2
+    delta   = None
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     npix    = hp.nside2npix(nside)
     lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
+    times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr   = np.linspace(50,100,51)
     cm21_params     = (-0.2, 80.0, 5.0)
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
@@ -261,10 +261,9 @@ def nontrivial_fg_obs_memopt(ret=False):
     lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 144, endpoint=False)
     nuarr   = np.linspace(50,100,51)
-    cm21_params     = (-0.2, 80.0, 5.0)
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
 
-    # Generate foreground and 21-cm signal alm
+    # Generate foreground alm
     fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
 
     # Generate observation matrix for the modelling and for the observations.
