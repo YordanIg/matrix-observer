@@ -134,7 +134,7 @@ class BlockMatrix:
         sum = []
         for self_block, other_block in zip(self._matrix, other._matrix):
             sum.append(self_block+other_block)
-        return BlockMatrix(sum)
+        return BlockMatrix(np.array(sum))
 
     def __sub__(self, other):
         """
@@ -156,7 +156,7 @@ class BlockMatrix:
         difference = []
         for self_block, other_block in zip(self._matrix, other._matrix):
             difference.append(self_block-other_block)
-        return BlockMatrix(sum)
+        return BlockMatrix(np.array(difference))
     
     def __mul__(self, other):
         """
