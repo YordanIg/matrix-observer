@@ -172,12 +172,12 @@ def nontrivial_obs_memopt():
     nside   = 32
     lmax    = 32
     lmod    = lmax
-    delta   = 1e-3
+    delta   = 1e-1
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     npix    = hp.nside2npix(nside)
     lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 24, 24, endpoint=False)
+    times = np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr   = np.linspace(50,100,51)
     cm21_params     = (-0.2, 80.0, 5.0)
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
@@ -202,6 +202,11 @@ def nontrivial_obs_memopt():
     mat_Ws   = [MM.calc_ml_estimator_matrix(mat_A_mod_block, noise_covar_block, delta=delta, cond=True) for mat_A_mod_block, noise_covar_block in zip(mat_A_mod.block, noise_covar.block)]
     mat_W = BlockMatrix(mat=np.array(mat_Ws))
     rec_alm = mat_W @ dnoisy
+ 
+    # Compute the chi-square and compare it to the length of the data vector.
+    chi_sq = (dnoisy - mat_A_mod@rec_alm).T @ noise_covar.inv @ (dnoisy - mat_A_mod@rec_alm)
+    chi_sq = sum(chi_sq.diag)
+    print("Chi-square:", chi_sq, "len(data):", dnoisy.vec_len,"+/-", np.sqrt(2*dnoisy.vec_len), "Nparams:", Nlmod*len(nuarr))
 
     # Extract the monopole component of the reconstructed alm.
     fid_a00  = np.array(fid_alm[::Nlmax])
@@ -222,7 +227,7 @@ def nontrivial_obs_memopt():
 
     # Plot everything
     plt.plot(nuarr, cm21_mod(nuarr, *res[0][-3:]), label='fit 21-cm monopole')
-    #plt.plot(nuarr, rec_a00-fg_a00, label='$a_{00}$ reconstructed - fid fg')
+    plt.plot(nuarr, rec_a00-fg_a00, label='$a_{00}$ reconstructed - fid fg')
     plt.plot(nuarr, cm21_mod(nuarr, *cm21_mon_p0), label='fiducial 21-cm monopole', linestyle=':', color='k')
     plt.legend()
     plt.ylabel("Temperature [K]")
@@ -238,7 +243,7 @@ def nontrivial_obs_memopt():
     plt.show()
 
 
-def nontrivial_fg_obs_memopt():
+def nontrivial_fg_obs_memopt(ret=False):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -253,8 +258,8 @@ def nontrivial_fg_obs_memopt():
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     npix    = hp.nside2npix(nside)
-    lats = np.linspace(-80, 80, 100)#np.array([-26*2, -26, 26, 26*2])#
-    times = np.linspace(0, 24, 24, endpoint=False)
+    lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
+    times = np.linspace(0, 24, 144, endpoint=False)
     nuarr   = np.linspace(50,100,51)
     cm21_params     = (-0.2, 80.0, 5.0)
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
@@ -270,7 +275,7 @@ def nontrivial_fg_obs_memopt():
     
     # Perform fiducial observations
     d = mat_A @ fg_alm
-    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e2, seed=123)
+    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=2500, seed=456)
 
 
     # Reconstruct the max likelihood estimate of the alm
@@ -282,7 +287,17 @@ def nontrivial_fg_obs_memopt():
     fg_a00  = np.array(fg_alm[::Nlmax])
     rec_a00 = np.array(rec_alm.vector[::Nlmod])
 
+    # Fit the reconstructed a00 component with a polynomial
+    fg_mon_p0 = [15, 2.5, .001]
+    res = curve_fit(f=fg_polymod, xdata=nuarr, ydata=rec_a00, p0=fg_mon_p0)
+
     plt.plot(nuarr, rec_a00-fg_a00, label='$a_{00}$ reconstructed - $a_{00}$ fid fg')
+    plt.axhline(y=0, linestyle=":", color='k')
+    plt.legend()
+    plt.ylabel("Temperature [K]")
+    plt.xlabel("Frequency [MHz]")
+    plt.show()
+    plt.plot(nuarr, rec_a00-fg_polymod(nuarr, *res[0]), label='$a_{00}$ reconstructed - $a_{00}$ polyfit')
     plt.axhline(y=0, linestyle=":", color='k')
     plt.legend()
     plt.ylabel("Temperature [K]")
