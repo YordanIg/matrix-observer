@@ -9,6 +9,7 @@ from numpy.linalg import svd
 from scipy.special import eval_legendre
 import matplotlib.pyplot as plt
 import seaborn as sns
+from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
 
 import src.beam_functions as BF
@@ -18,6 +19,7 @@ import src.sky_models as SM
 import src.map_making as MM
 import src.plotting as PL
 from src.blockmat import BlockMatrix, BlockVector
+from anstey.generate import T_CMB
 
 RS = SH.RealSphericalHarmonics()
 
@@ -27,7 +29,7 @@ def fg_polymod(nuarr, *theta_fg):
     zetas      = theta_fg[2:]
     exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
     fg_a00_terms = (Afg*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
-    return fg_a00_terms
+    return fg_a00_terms #+ T_CMB
 
 def cm21_mod(nuarr, *theta_21):
     A21, nu0, dnu = theta_21
@@ -171,14 +173,14 @@ def nontrivial_obs_memopt():
     # Model and observation params
     nside   = 32
     lmax    = 32
-    lmod    = 2
+    lmod    = 4
     delta   = None
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     npix    = hp.nside2npix(nside)
-    lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
+    lats = np.linspace(-80, 80, 100)#np.array([-26*2, -26, 26, 26*2])#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
-    nuarr   = np.linspace(50,100,51)
+    nuarr = np.linspace(50,100,51)
     cm21_params     = (-0.2, 80.0, 5.0)
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
 
@@ -195,11 +197,14 @@ def nontrivial_obs_memopt():
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=2500, seed=456)#t_int=100, seed=456)#
+    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e3, seed=456)#t_int=100, seed=456)#
 
 
     # Reconstruct the max likelihood estimate of the alm
-    mat_Ws   = [MM.calc_ml_estimator_matrix(mat_A_mod_block, noise_covar_block, delta=delta, cond=True) for mat_A_mod_block, noise_covar_block in zip(mat_A_mod.block, noise_covar.block)]
+    mat_Ws_and_covs   = [MM.calc_ml_estimator_matrix(mat_A_mod_block, noise_covar_block, delta=delta, cond=True, cov=True) for mat_A_mod_block, noise_covar_block in zip(mat_A_mod.block, noise_covar.block)]
+    mat_Ws, covs = zip(*mat_Ws_and_covs)
+    cov = BlockMatrix(mat=np.array(covs))
+    alm_error = np.sqrt(cov.diag)
     mat_W = BlockMatrix(mat=np.array(mat_Ws))
     rec_alm = mat_W @ dnoisy
  
@@ -212,11 +217,12 @@ def nontrivial_obs_memopt():
     fid_a00  = np.array(fid_alm[::Nlmax])
     fg_a00  = np.array(fg_alm[::Nlmax])
     rec_a00 = np.array(rec_alm.vector[::Nlmod])
+    a00_error = np.array(alm_error[::Nlmod])
 
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
     fg_mon_p0 = [15, 2.5, .001]
     cm21_mon_p0 = [-0.2, 80, 5]
-    res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, p0=fg_mon_p0+cm21_mon_p0)
+    res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
     
     plt.plot(nuarr, rec_a00-fid_a00, label='$a_{00}$ reconstructed - $a_{00}$ fid fg')
     plt.axhline(y=0, linestyle=":", color='k')
@@ -227,7 +233,6 @@ def nontrivial_obs_memopt():
 
     # Plot everything
     plt.plot(nuarr, cm21_mod(nuarr, *res[0][-3:]), label='fit 21-cm monopole')
-    plt.plot(nuarr, rec_a00-fg_a00, label='$a_{00}$ reconstructed - fid fg')
     plt.plot(nuarr, cm21_mod(nuarr, *cm21_mon_p0), label='fiducial 21-cm monopole', linestyle=':', color='k')
     plt.legend()
     plt.ylabel("Temperature [K]")
@@ -235,12 +240,21 @@ def nontrivial_obs_memopt():
     plt.show()
 
     plt.plot(nuarr, cm21_mod(nuarr, *res[0][-3:])-cm21_mod(nuarr, *cm21_mon_p0), label='fit 21-cm monopole')
-    plt.plot(nuarr, rec_a00-fg_a00-cm21_mod(nuarr, *cm21_mon_p0), label='$a_{00}$ reconstructed - fid fg')
     plt.plot(nuarr, cm21_mod(nuarr, *cm21_mon_p0)-cm21_mod(nuarr, *cm21_mon_p0), label='fiducial 21-cm monopole', linestyle=':', color='k')
     plt.legend()
     plt.ylabel("Temperature [K]")
     plt.xlabel("Frequency [MHz]")
     plt.show()
+
+    # Provide a corner plot for the 21-cm inference.
+    # Draw samples from the likelihood.
+    chain = np.random.multivariate_normal(mean=res[0][:-3], cov=res[1][:-3,:-3], size=10000)
+    c = ChainConsumer()
+    c.add_chain(chain, parameters=['A', 'nu0', 'dnu'])
+    f = c.plotter.plot()
+    f.show()
+
+
 
 
 def nontrivial_fg_obs_memopt(ret=False):
