@@ -9,6 +9,7 @@ from numpy.linalg import svd
 from scipy.special import eval_legendre
 import matplotlib.pyplot as plt
 import seaborn as sns
+from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
 
 import src.beam_functions as BF
@@ -64,14 +65,12 @@ def fg_cm21():
     # Model and observation params
     nside   = 32
     lmax    = 32
-    delta   = 1e-3
     Nlmax   = RS.get_size(lmax)
-    npix    = hp.nside2npix(nside)
-    lats = np.array([-26])#np.linspace(-80, 80, 100)#
+    lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)
     Nbin  = len(lats)*len(times)
     nuarr   = np.linspace(50,100,51)
-    cm21_params     = (-0.2, 80.0, 5.0)
+    cm21_params     = [-0.2, 80.0, 5.0]
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
 
     # Generate foreground and 21-cm alm
@@ -85,34 +84,94 @@ def fg_cm21():
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e4, seed=456)
+    dnoisy, noise_covar = SM.add_noise(d, dnu=1, Ntau=1, t_int=100, seed=456)
+    sample_noise = np.sqrt(noise_covar.block[0][0,0])
+    print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
+
 
     # Set up the foreground model
-    mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=3)
+    Npoly = 4
+    mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
         return mod(theta)
 
     # Try curve_fit:
-    res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=[10, -2.5, 0.01, -.2, 80.0, 5.0])
+    p0 = [10, -2.5]
+    p0 += [0.01]*(Npoly-2)
+    p0 += cm21_params
+    res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
 
     print("par est:", res[0])
     print("std devs:", np.sqrt(np.diag(res[1])))
     print("chi-sq")
-
-    plt.plot(dnoisy.vector, '.')
-    plt.plot(mod(res[0]), '.')
-    plt.show()
     plt.plot(dnoisy.vector-mod(res[0]), '.')
+    plt.xlabel("bin")
+    plt.ylabel("data - model [K]")
     plt.show()
 
+    # Provide a corner plot for the 21-cm inference.
+    # Draw samples from the likelihood.
+    chain = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100000)
+    c = ChainConsumer()
+    c.add_chain(chain, parameters=['A', 'nu0', 'dnu'])
+    f = c.plotter.plot()
+    plt.show()
+
+    # Evaluate the model at 100 points drawn from the chain to get 1sigma 
+    # inference bounds in data space.
+    cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
+    chain_samples = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100)
+    cm21_a00_sample_list = [cm21_a00_mod(nuarr, theta) for theta in chain_samples]
+    cm21_a00_sample_mean = np.mean(cm21_a00_sample_list, axis=0)
+    cm21_a00_sample_std = np.std(cm21_a00_sample_list, axis=0)
+
+    # Plot the model evaluated 1 sigma regions and the fiducial monopole.
     cm21_a00 = np.array(cm21_alm[::Nlmax])
-    plt.plot(np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *res[0][-3:]), label="reconstructed 21-cm a00")
-    plt.plot(cm21_a00, label='fiducial 21-cm a00', linestyle=':', color='k')
+    plt.plot(nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-cm21_a00_sample_std, 
+        cm21_a00_sample_mean+cm21_a00_sample_std,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-2*cm21_a00_sample_std, 
+        cm21_a00_sample_mean+2*cm21_a00_sample_std,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("21-cm a00 [K]")
     plt.legend()
     plt.show()
-    plt.plot(np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *res[0][-3:])-cm21_a00, label="reconstructed 21-cm a00 residuals")
-    plt.axhline(y=0, linestyle=':', color='k')
+
+    # Do the same thing but take the residuals.
+    plt.plot(nuarr, cm21_a00-cm21_a00, label='fiducial', linestyle=':', color='k')
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-cm21_a00_sample_std-cm21_a00, 
+        cm21_a00_sample_mean+cm21_a00_sample_std-cm21_a00,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-2*cm21_a00_sample_std-cm21_a00, 
+        cm21_a00_sample_mean+2*cm21_a00_sample_std-cm21_a00,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("Inferred 21-cm a00 residuals [K]")
     plt.legend()
     plt.show()
 
