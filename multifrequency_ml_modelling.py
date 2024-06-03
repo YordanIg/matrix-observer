@@ -266,8 +266,7 @@ def nontrivial_obs_memopt():
         cm21_a00_sample_mean+2*cm21_a00_sample_std,
         color='C1',
         alpha=0.4,
-        edgecolor='none',
-        label="inferred"
+        edgecolor='none'
     )
     plt.xlabel("Frequency [MHz]")
     plt.ylabel("21-cm a00 [K]")
@@ -291,8 +290,7 @@ def nontrivial_obs_memopt():
         cm21_a00_sample_mean+2*cm21_a00_sample_std-cm21_a00,
         color='C1',
         alpha=0.4,
-        edgecolor='none',
-        label="inferred"
+        edgecolor='none'
     )
     plt.xlabel("Frequency [MHz]")
     plt.ylabel("Inferred 21-cm a00 residuals [K]")
