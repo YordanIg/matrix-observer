@@ -178,7 +178,7 @@ def nontrivial_obs_memopt():
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     npix    = hp.nside2npix(nside)
-    lats = np.linspace(-80, 80, 100)#np.array([-26*2, -26, 26, 26*2])#
+    lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
     cm21_params     = (-0.2, 80.0, 5.0)
@@ -197,8 +197,9 @@ def nontrivial_obs_memopt():
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e3, seed=456)#t_int=100, seed=456)#
-
+    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=100, seed=456)#t_int=100, seed=456)#
+    sample_noise = np.sqrt(noise_covar.block[0][0,0])
+    print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
     # Reconstruct the max likelihood estimate of the alm
     mat_Ws_and_covs   = [MM.calc_ml_estimator_matrix(mat_A_mod_block, noise_covar_block, delta=delta, cond=True, cov=True) for mat_A_mod_block, noise_covar_block in zip(mat_A_mod.block, noise_covar.block)]
@@ -231,29 +232,72 @@ def nontrivial_obs_memopt():
     plt.xlabel("Frequency [MHz]")
     plt.show()
 
-    # Plot everything
-    plt.plot(nuarr, cm21_mod(nuarr, *res[0][-3:]), label='fit 21-cm monopole')
-    plt.plot(nuarr, cm21_mod(nuarr, *cm21_mon_p0), label='fiducial 21-cm monopole', linestyle=':', color='k')
-    plt.legend()
-    plt.ylabel("Temperature [K]")
-    plt.xlabel("Frequency [MHz]")
-    plt.show()
-
-    plt.plot(nuarr, cm21_mod(nuarr, *res[0][-3:])-cm21_mod(nuarr, *cm21_mon_p0), label='fit 21-cm monopole')
-    plt.plot(nuarr, cm21_mod(nuarr, *cm21_mon_p0)-cm21_mod(nuarr, *cm21_mon_p0), label='fiducial 21-cm monopole', linestyle=':', color='k')
-    plt.legend()
-    plt.ylabel("Temperature [K]")
-    plt.xlabel("Frequency [MHz]")
-    plt.show()
-
     # Provide a corner plot for the 21-cm inference.
     # Draw samples from the likelihood.
-    chain = np.random.multivariate_normal(mean=res[0][:-3], cov=res[1][:-3,:-3], size=10000)
+    chain = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100000)
     c = ChainConsumer()
     c.add_chain(chain, parameters=['A', 'nu0', 'dnu'])
     f = c.plotter.plot()
-    f.show()
+    plt.show()
 
+    # Evaluate the model at 100 points drawn from the chain to get 1sigma 
+    # inference bounds in data space.
+    cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
+    chain_samples = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100)
+    cm21_a00_sample_list = [cm21_a00_mod(nuarr, theta) for theta in chain_samples]
+    cm21_a00_sample_mean = np.mean(cm21_a00_sample_list, axis=0)
+    cm21_a00_sample_std = np.std(cm21_a00_sample_list, axis=0)
+
+    # Plot the model evaluated 1 sigma regions and the fiducial monopole.
+    cm21_a00 = np.array(cm21_alm[::Nlmax])
+    plt.plot(nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-cm21_a00_sample_std, 
+        cm21_a00_sample_mean+cm21_a00_sample_std,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-2*cm21_a00_sample_std, 
+        cm21_a00_sample_mean+2*cm21_a00_sample_std,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("21-cm a00 [K]")
+    plt.legend()
+    plt.show()
+
+    # Do the same thing but take the residuals.
+    plt.plot(nuarr, cm21_a00-cm21_a00, label='fiducial', linestyle=':', color='k')
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-cm21_a00_sample_std-cm21_a00, 
+        cm21_a00_sample_mean+cm21_a00_sample_std-cm21_a00,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-2*cm21_a00_sample_std-cm21_a00, 
+        cm21_a00_sample_mean+2*cm21_a00_sample_std-cm21_a00,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("Inferred 21-cm a00 residuals [K]")
+    plt.legend()
+    plt.show()
 
 
 
