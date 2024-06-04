@@ -153,7 +153,45 @@ def calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax,
         mat_Y_bl = BlockMatrix(mat=mat_Y, nblock=len(nuarr))
         mat_B_bl = BlockMatrix(mat=mat_B, nblock=len(nuarr))
         return mat_A_bl, (mat_G_bl, mat_P_bl, mat_Y_bl, mat_B_bl)
-    return BlockMatrix(mat=mat_A, nblock=len(nuarr))
+    return BlockMatrix(mat=mats, nblock=len(nuarr))
+
+def calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=None, lats=[-26],
+                            times=np.linspace(0, 24, 24, endpoint=False), 
+                            beam_use=BF.beam_cos_FWHM, chromaticity=BF.fwhm_func_tauscher, return_mat=False):
+    """
+    Do the same thing as calc_observation_matrix_multi_zenith_driftscan_multifreq 
+    but model beam chromaticity.
+    """
+    mats_A = []
+    mats_G = []
+    mats_P = []
+    mats_Y = []
+    mats_B = []
+    for nu in nuarr:
+        def beam(theta):
+            return beam_use(theta, chromaticity(nu=nu))
+        mat = calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats,
+                            times=times, 
+                            beam_use=beam, return_mat=return_mat)
+        if return_mat:
+            mat_A, (mat_G, mat_P, mat_Y, mat_B) = mat
+            mats_A.append(mat_A)
+            mats_G.append(mat_G)
+            mats_P.append(mat_P)
+            mats_Y.append(mat_Y)
+            mats_B.append(mat_B)
+        else:
+            mats_A.append(mat)
+
+    if return_mat:
+        mat_A_bl = BlockMatrix(mat=mats_A)
+        mat_G_bl = BlockMatrix(mat=mats_G)
+        mat_P_bl = BlockMatrix(mat=mats_P)
+        mat_Y_bl = BlockMatrix(mat=mats_Y)
+        mat_B_bl = BlockMatrix(mat=mats_B)
+        return mat_A_bl, (mat_G_bl, mat_P_bl, mat_Y_bl, mat_B_bl)
+    
+    return BlockMatrix(mat=mats_A)
 
 def calc_observation_matrix_all_pix_multifreq(nuarr, nside, lmax, Ntau, 
                                               beam_use=BF.beam_cos, 
