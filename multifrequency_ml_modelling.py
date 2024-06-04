@@ -173,7 +173,7 @@ def nontrivial_obs_memopt():
     # Model and observation params
     nside   = 32
     lmax    = 32
-    lmod    = 4
+    lmod    = 3
     delta   = None
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
@@ -221,7 +221,9 @@ def nontrivial_obs_memopt():
     a00_error = np.array(alm_error[::Nlmod])
 
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
-    fg_mon_p0 = [15, 2.5, .001]
+    Npoly = 3
+    fg_mon_p0 = [15, 2.5]
+    fg_mon_p0 += [.001]*(Npoly-2)
     cm21_mon_p0 = [-0.2, 80, 5]
     res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
     
