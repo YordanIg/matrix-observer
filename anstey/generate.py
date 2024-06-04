@@ -6,7 +6,7 @@ following the method of Anstey et. al. 2021 [2010.09644].
 import numpy as np
 from pygdsm import GlobalSkyModel
 from healpy import ud_grade
-T_CMB = 0# 2.725
+T_CMB = 2.725
 
 def main(nside_out=None):
     sky   = GlobalSkyModel()

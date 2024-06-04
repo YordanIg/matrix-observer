@@ -29,7 +29,7 @@ def fg_polymod(nuarr, *theta_fg):
     zetas      = theta_fg[2:]
     exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
     fg_a00_terms = (Afg*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
-    return fg_a00_terms #+ T_CMB
+    return fg_a00_terms + np.sqrt(4*np.pi)*T_CMB
 
 def cm21_mod(nuarr, *theta_21):
     A21, nu0, dnu = theta_21
