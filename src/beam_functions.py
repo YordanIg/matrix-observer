@@ -19,6 +19,18 @@ import matplotlib.pyplot as plt
 
 import src.spherical_harmonics as SH
 
+
+def fwhm_func_tauscher(nu, c=2.4e-2):
+    """
+    Define the FWHM function from Tauscher et. al. 2020.
+    Returns value in rad.
+    """
+    fwhm_lo = 60
+    fwhm_hi = 80
+    al = (fwhm_hi-fwhm_lo)/50 * nu + 2*fwhm_lo - fwhm_hi
+    ac = 0.5*nu**2 - 75*nu + 50**2
+    return np.radians(al + c*ac)
+
 def beam_cos(theta, theta0=1.0):
     """
     Example beam function. Azimuthally symmetrix beam
@@ -34,6 +46,12 @@ def beam_cos(theta, theta0=1.0):
     else:
         b = 0.0
     return b
+
+def beam_cos_FWHM(theta, FWHM=np.pi/2):
+    """
+    Same as beam_cos, but takes the FWHM in radians instead of theta0.
+    """
+    return beam_cos(theta, theta0 = FWHM*2/np.pi)
 
 def beam_gauss(theta, theta0=0.1):
     """
