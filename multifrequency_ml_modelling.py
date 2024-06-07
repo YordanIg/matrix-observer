@@ -340,7 +340,18 @@ def _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, fi
     rec_a00 = np.array(rec_alm[::Nlmod])
     a00_error = np.array(alm_error[::Nlmod])
 
+    # Plot the reconstructed a00 mode minus the fiducial a00 mode.
     plt.plot(nuarr, rec_a00-fid_a00, label='$a_{00}$ reconstructed - $a_{00}$ fid fg')
+    plt.axhline(y=0, linestyle=":", color='k')
+    plt.legend()
+    plt.ylabel("Temperature [K]")
+    plt.xlabel("Frequency [MHz]")
+    plt.show()
+
+    # Plot the reconstructed a00 mode minus the best-fitting power law with no
+    # running.
+    res = curve_fit(fg_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=[15,2.5])
+    plt.plot(nuarr, rec_a00-fg_polymod(nuarr, *res[0]), label='$a_{00}$ reconstructed - power law')
     plt.axhline(y=0, linestyle=":", color='k')
     plt.legend()
     plt.ylabel("Temperature [K]")
