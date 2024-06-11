@@ -73,14 +73,29 @@ def compare_polyn_reconstructions(lmax, lmod, Npoly):
     nside = 32
     times = np.linspace(0, 6, 3)
     noise = 0.0
+    Ntau=len(times)
+    lats=[-26]
     dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
         uniform_noise=True,
         unoise_K = noise,
         times = times,
-        Ntau = len(times),
+        Ntau = Ntau,
         lmax = lmax,
+        lats = lats,
         nside = nside
     )
+    if lmax != lmod:
+        _, _, mat_A_mod, _, _ = NRI.fiducial_obs(
+            uniform_noise=True,
+            unoise_K = noise,
+            times = times,
+            Ntau = Ntau,
+            lmax = lmod,
+            lats = lats,
+            nside = nside
+        )
+    else:
+        mat_A_mod = mat_A
     derr = np.sqrt(np.diag(noise_covar.matrix))
     plt.plot(dnoisy.vector, '.', label='mock data')
     plt.xlabel("bin")
@@ -95,7 +110,7 @@ def compare_polyn_reconstructions(lmax, lmod, Npoly):
     fitlist=_fit_alms(nuarr=nuarr, alm_list=a_sep.T, Npoly=Npoly)
 
     # Evaluating the model at the fiducial parameter set.
-    mod = FM.genopt_alm_pl_forward_model(nuarr, observation_mat=mat_A, Npoly=Npoly, lmax=lmod)
+    mod = FM.genopt_alm_pl_forward_model(nuarr, observation_mat=mat_A_mod, Npoly=Npoly, lmax=lmod)
     dmod = mod(fitlist.flatten())
     plt.plot(dmod, '.', label='fiducial model')
     plt.legend()
