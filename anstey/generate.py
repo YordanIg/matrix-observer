@@ -2,7 +2,11 @@
 Code that generates the spectral indices of the 2008 PyGDSM pixel by pixel,
 following the method of Anstey et. al. 2021 [2010.09644].
 '''
-
+import os
+if os.uname()[1]=='yordan-XPS-15-9560':
+    ROOT = '/home/yordan/Documents/boosted-compass/matrix-observer'
+else:
+    ROOT = '/Users/yordani/Documents/boosted_compass/matrix-observer'
 import numpy as np
 from pygdsm import GlobalSkyModel
 from healpy import ud_grade
@@ -18,7 +22,7 @@ def main(nside_out=None):
         T_408 = ud_grade(T_408, nside_out)
         tag=f'_{nside_out}'
     indexes = -np.log((T_230-T_CMB)/(T_408-T_CMB)) / np.log(230/408)
-    np.save('/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes'+tag, 
+    np.save(ROOT+'/anstey/indexes'+tag, 
             np.array([T_408, indexes]))
 
 
