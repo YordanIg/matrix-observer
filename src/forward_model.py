@@ -425,6 +425,7 @@ def generate_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
             alm_term = (A*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
             alm_blocks.append(alm_term)
         alm_blocks = np.array(alm_blocks)
+        alm_blocks[0] += T_CMB
 
         final_alm_vec = []
         for n in range(Nnuarr):
@@ -476,6 +477,8 @@ def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
             
             alm_term = (A*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
             alm_blocks[ii,:] = alm_term
+        
+        alm_blocks[0] += T_CMB
 
         final_alm_vec = alm_blocks.T
 

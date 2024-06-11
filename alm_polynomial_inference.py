@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
@@ -5,9 +7,10 @@ from scipy.optimize import curve_fit
 import nregions_inference as NRI
 import src.sky_models as SM
 import src.forward_model as FM
+from anstey.generate import T_CMB
 
 
-def _alm_forward_model(nuarr, *c):
+def _alm_forward_model(nuarr, *c, a00_offset=False):
     """
     Calculate the alm polynomial given a vector of components c = (A/1000, alpha, *zetas)
     Note the rescaling on the A term.
@@ -16,9 +19,11 @@ def _alm_forward_model(nuarr, *c):
     zetas    = c[2:]
     exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
     alm_term = (A*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
+    if a00_offset:
+        alm_term += T_CMB
     return alm_term
 
-def _regress_powerlaw(nuarr, alm, Npoly=2):
+def _regress_powerlaw(nuarr, alm, Npoly=2, a00_offset=False):
     """
     Assuming that alm = A(nu/60)^alpha exp(zeta_0 log(nuarr/60)^2 + zeta_1 log(nuarr/60)^3 + ...)
     find the vector of values c=(A, alpha, zeta_0, ...) up to Npoly total terms.
@@ -34,16 +39,23 @@ def _regress_powerlaw(nuarr, alm, Npoly=2):
         p0 = [-10, 2.5] + [0.001]*(Npoly-2)
     else:
         return 0
-
-    fit, cov = curve_fit(_alm_forward_model, nuarr, alm, p0=p0)
+    f = partial(_alm_forward_model, a00_offset=a00_offset)
+    fit, cov = curve_fit(f, nuarr, alm, p0=p0)
 
     return fit, cov
 
 def _fit_alms(nuarr, alm_list, Npoly=4):
+    """
+    Fit a list of alms from a00 upwards.
+    """
     fitlist = []
     for i, alm in enumerate(alm_list):
         try:
-            fit, _ = _regress_powerlaw(nuarr, alm, Npoly=Npoly)
+            if i==0:
+                a00_offset=True
+            else:
+                a00_offset=False
+            fit, _ = _regress_powerlaw(nuarr, alm, Npoly=Npoly, a00_offset=a00_offset)
         except:
             print(f"Error: cannot fit {i} as it has a zero-crossing, skipping it for now.")
         fitlist.append(fit)
