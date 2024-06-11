@@ -70,7 +70,7 @@ def compare_polyn_reconstructions(lmax, lmod, Npoly):
     by Npoly.
     """
     # Generate data.
-    nside = 16
+    nside = 32
     times = np.linspace(0, 6, 3)
     noise = 0.0
     dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
