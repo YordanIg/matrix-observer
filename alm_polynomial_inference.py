@@ -20,7 +20,7 @@ def _alm_forward_model(nuarr, *c, a00_offset=False):
     exponent = [zetas[i]*np.log(nuarr/60)**(i+2) for i in range(len(zetas))]
     alm_term = (A*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
     if a00_offset:
-        alm_term += T_CMB
+        alm_term += np.sqrt(4*np.pi)*T_CMB
     return alm_term
 
 def _regress_powerlaw(nuarr, alm, Npoly=2, a00_offset=False):
