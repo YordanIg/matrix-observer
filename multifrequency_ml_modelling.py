@@ -2,13 +2,9 @@
 Using maximum-likelihood methods to reconstruct a_{00}(\nu), then fit a power
 law and a 21-cm signal to it.
 """
-from pygdsm import GlobalSkyModel2016
 import healpy as hp
 import numpy as np
-from numpy.linalg import svd
-from scipy.special import eval_legendre
 import matplotlib.pyplot as plt
-import seaborn as sns
 from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
 
@@ -18,7 +14,7 @@ import src.forward_model as FM
 import src.sky_models as SM
 import src.map_making as MM
 import src.plotting as PL
-from src.blockmat import BlockMatrix, BlockVector
+from src.blockmat import BlockMatrix
 from anstey.generate import T_CMB
 
 RS = SH.RealSphericalHarmonics()
