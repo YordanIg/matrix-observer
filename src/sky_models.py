@@ -9,7 +9,13 @@ Models should return a vector of alm with structure
 """
 import healpy
 import numpy as np
-from pygdsm import GlobalSkyModel2016
+import os
+if os.uname()[1]=='yordan-XPS-15-9560':
+    from pygdsm import GlobalSkyModel16 as GlobalSkyModel2016
+    ROOT = '/home/yordan/Documents/boosted-compass/matrix-observer'
+else:
+    from pygdsm import GlobalSkyModel2016
+    ROOT = '/Users/yordani/Documents/boosted_compass/matrix-observer'
 from numba import jit
 from anstey.generate import T_CMB
 
@@ -409,7 +415,7 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     '''
     #load the gsma indexes
     try:
-        T_408, indexes = np.load('/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes.npy')
+        T_408, indexes = np.load(ROOT+'/anstey/indexes.npy')
     except:
         raise Exception("Indexes for the Anstey sky have not been "\
                         +"generated.")
@@ -438,7 +444,7 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
     if nside is None:
         nside=16
     try:
-        T_408, indexes = np.load(f'/Users/yordani/Documents/boosted_compass/matrix-observer/anstey/indexes_{nside}.npy')
+        T_408, indexes = np.load(ROOT+f'/anstey/indexes_{nside}.npy')
     except:
         raise Exception(f"Indexes for the Anstey sky nside={nside} have not been "\
                         +"generated.")
