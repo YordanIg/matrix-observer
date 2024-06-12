@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from emcee import EnsembleSampler
 from chainconsumer import ChainConsumer
+from numba import jit
 
 import nregions_inference as NRI
 import src.sky_models as SM
@@ -165,6 +166,81 @@ def compare_fm_reconstructions(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     ndim = fg_dim
     theta_guess = fitlist.flatten()
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+
+    # run emcee without priors
+    err = np.sqrt(noise_covar.diag)
+    sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
+                        args=(dnoisy.vector, err, mod))
+    _=sampler.run_mcmc(pos, nsteps=steps, progress=True)
+    chain = sampler.get_chain(flat=True, discard=burn_in)
+
+    # Plot chain.
+    c = ChainConsumer()
+    c.add_chain(chain)
+    f = c.plotter.plot()
+    plt.show()
+
+    # Plot residuals to fit.
+    theta_inferred = np.mean(chain, axis=0)
+    d_inferred = mod(theta_inferred)
+    plt.plot(dnoisy.vector-d_inferred, '.')
+    plt.xlabel("bin")
+    plt.ylabel("Temp residuals [K]")
+    plt.show()
+
+
+def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
+    """
+    Forward-model fit the first lmod alms of the foreground polynomial model, 
+    and take the rest of the alms to be the fiducial values.
+    """
+    # Generate the data.
+    nside = 32
+    times = np.linspace(0, 6, 3)
+    noise = 0.001
+    lats  = [-26, 26]
+    dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
+        uniform_noise=True,
+        unoise_K = noise,
+        times = times,
+        Ntau = len(times),
+        lmax = lmax,
+        nside = nside,
+        lats=lats
+    )
+    plt.plot(dnoisy.vector, '.', label='mock data')
+    plt.xlabel("bin")
+    plt.ylabel("Temp [K]")
+    plt.show()
+
+    # Instantiate the model.
+    nuarr   = NRI.nuarr
+    fullmod = FM.genopt_alm_pl_forward_model(nuarr, observation_mat=mat_A, Npoly=Npoly, lmax=lmax)  # used to be lmod
+
+    # Compute the 0<l<lmod alm polynomial parameters as an initial guess for the
+    # inference, and the lmod<l<lmax polynomial parameters to evaluate the model
+    # at these automatically.
+    a = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
+    a_sep = np.array(np.split(a, len(nuarr)))
+    fitlist=_fit_alms(nuarr=nuarr, alm_list=a_sep.T, Npoly=Npoly)
+    Nlmod = RS.get_size(lmax=lmod)
+    fit_parguess = fitlist[:Nlmod]
+    fit_fidpars  = fitlist[Nlmod:]
+    theta_guess = fit_parguess.flatten()
+    theta_fid   = fit_fidpars.flatten()
+
+    # create a small ball around the MLE the initialize each walker
+    nwalkers, fg_dim = 64, Npoly*RS.get_size(lmod)
+    ndim = fg_dim
+    pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+
+    # Partially evaluate the model.
+    @jit
+    def mod(theta):
+        all_theta = np.zeros(len(theta_fid)+len(theta_guess))
+        all_theta[:len(theta_guess)] = theta
+        all_theta[len(theta_guess):] = theta_fid
+        return fullmod(all_theta)
 
     # run emcee without priors
     err = np.sqrt(noise_covar.diag)
