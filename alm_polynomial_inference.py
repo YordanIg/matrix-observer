@@ -265,6 +265,7 @@ def compare_fm_fidpl_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000)
     plt.show()
 
 
+# Important function: fiducial foreground correction with exact values.
 def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     """
     Forward-model fit the first lmod alms of the foreground polynomial model, 
