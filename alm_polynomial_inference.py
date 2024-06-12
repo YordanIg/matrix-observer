@@ -189,7 +189,7 @@ def compare_fm_reconstructions(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     plt.show()
 
 
-def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
+def compare_fm_fidpl_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     """
     Forward-model fit the first lmod alms of the foreground polynomial model, 
     and take the rest of the alms to be the fiducial values.
@@ -197,7 +197,7 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     # Generate the data.
     nside = 32
     times = np.linspace(0, 6, 3)
-    noise = 0.001
+    noise = 0.01
     lats  = [-26, 26]
     dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
         uniform_noise=True,
@@ -258,7 +258,7 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     # Plot residuals to fit.
     theta_inferred = np.mean(chain, axis=0)
     d_inferred = mod(theta_inferred)
-    plt.plot(dnoisy.vector-d_inferred, '.')
+    plt.errorbar(range(len(dnoisy.vector)), dnoisy.vector-d_inferred, '.')
     plt.xlabel("bin")
     plt.ylabel("Temp residuals [K]")
     plt.show()
