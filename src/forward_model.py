@@ -537,6 +537,56 @@ def genopt_alm_plfid_forward_model(nuarr, observation_mat, fid_alm, Npoly=2, lmo
 
     return model
 
+def genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat, fid_alm, Npoly=2, lmod=1, lmax=32):
+    """
+    Return a function that forward-models (without noise) the 
+    Alm polynomial model, correcting with the fiducial alm values above lmod. 
+    Note that this is a foreground and 21-cm monopole model.
+    
+    Returns
+    -------
+    model : function
+        model is a function of a list of power law indices and runnings for
+        each of the modelled sky alm up to and including lmax. These are ordered
+        like (c_{00,0}, c_{00,1}, ..., c_{1-1,0}, c_{1-1,1}, ...)
+        for c_{lm,n}, where n is the polynomial index.
+    """
+    if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
+        raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
+    observation_mat = observation_mat.matrix
+    Nlmax = RS.get_size(lmax=lmax)
+    Nlmod = RS.get_size(lmax=lmod)
+    Nnuarr = len(nuarr)
+    
+    @jit
+    def model(theta):
+        # Compute the alm vector.
+        theta_cm21 = theta[-3:]
+        theta_blocks = np.reshape(theta[:-3], (Nlmod, Npoly))
+        alm_blocks = np.zeros((Nlmax, Nnuarr))
+        for ii, block in enumerate(theta_blocks):
+            A, alpha = block[:2]
+            zetas    = np.zeros(len(block)-2)
+            zetas    = block[2:]
+
+            exponent = np.zeros((len(zetas), Nnuarr))
+            for i in range(len(zetas)):
+                exponent[i,:] = zetas[i]*np.log(nuarr/60)**(i+2)
+            
+            alm_term = (A*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
+            alm_blocks[ii,:] = alm_term
+        
+        alm_blocks[0] += np.sqrt(4*np.pi)*(T_CMB + cm21_globalT(nu=nuarr, A=theta_cm21[0], nu0=theta_cm21[1], dnu=theta_cm21[2]))
+        alm_blocks[Nlmod:] = fid_alm
+
+        final_alm_vec = alm_blocks.T
+
+        # Multiply this by the observation matrix.
+        dmod = observation_mat @ final_alm_vec.flatten()
+        return dmod
+
+    return model
+
 ################################################################################
 # Binwise foreground modelling.
 ################################################################################
