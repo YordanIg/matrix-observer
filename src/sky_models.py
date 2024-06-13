@@ -422,7 +422,7 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 nside=nside, map=map)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, delta=None):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -439,6 +439,11 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
     If map is True, also returns the alm represented as a series of
     healpix maps. The resulting nside will match the nside argument,
     or will be equal to 16, the native resolution of the GSMA lo.
+
+    If use_mat_Y is True, calculates/uses the spherical harmonic matrix Y.
+
+    If delta is not None, will add this width of Gaussian random error to each
+    of the indexes of the sky.
     '''
     #load the gsma indexes
     if nside is None:
@@ -448,6 +453,9 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
     except:
         raise Exception(f"Indexes for the Anstey sky nside={nside} have not been "\
                         +"generated.")
+    if delta is not None:
+        np.random.seed(123)
+        indexes = np.random.normal(loc=indexes, scale=delta)
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 map=map, original_map=original_map, use_mat_Y=use_mat_Y)
 

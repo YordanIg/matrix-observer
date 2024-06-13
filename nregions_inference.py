@@ -39,7 +39,7 @@ default_pars = {
 }
 
 def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None, 
-                 Ntau=None, lmax=None, nside=None, lats=None):
+                 Ntau=None, lmax=None, nside=None, lats=None, delta=None):
     """
     Forward model the fiducial degraded GSMA.
 
@@ -56,6 +56,10 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
     lmax, nside
         Lmax and Nside of the fiducial sky. Defults to 
         default_pars["lmax/nside"].
+    delta
+        Gaussian width of uncertainty to add to the default GSMA indices - used
+        to generate different "instances" of the foregrounds. Leave as None to 
+        use the default GSMA.
     """
     if unoise_K is None:
         unoise_K = default_pars["unoise"]
@@ -73,7 +77,7 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         lats = default_pars["lats"]
 
     narrow_cosbeam = lambda x: BF.beam_cos(x, theta0=0.8)
-    fg_alm, og_map = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, use_mat_Y=True, nside=nside, original_map=True)
+    fg_alm, og_map = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, use_mat_Y=True, nside=nside, original_map=True, delta=delta)
 
     times = np.linspace(0,24,3, endpoint=False)
     mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
