@@ -39,7 +39,8 @@ default_pars = {
 }
 
 def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None, 
-                 Ntau=None, lmax=None, nside=None, lats=None, delta=None, chrom=False):
+                 Ntau=None, lmax=None, nside=None, lats=None, delta=None, 
+                 chrom=False, cm21_pars=None):
     """
     Forward model the fiducial degraded GSMA.
 
@@ -60,6 +61,9 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         Gaussian width of uncertainty to add to the default GSMA indices - used
         to generate different "instances" of the foregrounds. Leave as None to 
         use the default GSMA.
+    cm21_pars
+        The Gaussian monopole parameters (A, nu0, dnu). If None, no monopole is
+        included.
     """
     if unoise_K is None:
         unoise_K = default_pars["unoise"]
@@ -77,7 +81,11 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         lats = default_pars["lats"]
 
     narrow_cosbeam = lambda x: BF.beam_cos(x, theta0=0.8)
-    fg_alm, og_map = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, use_mat_Y=True, nside=nside, original_map=True, delta=delta)
+    fid_alm, og_map = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, use_mat_Y=True, nside=nside, original_map=True, delta=delta)
+    if cm21_pars is not None:
+        Nlmax = RS.get_size(lmax)
+        cm21_a00 = np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *cm21_pars)
+        fid_alm[::Nlmax] += cm21_a00
 
     times = np.linspace(0,24,3, endpoint=False)
     if not chrom:
@@ -85,7 +93,8 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
     elif chrom:
         mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=BF.fwhm_func_tauscher, return_mat=True)
     
-    d = mat_A@(fg_alm)
+
+    d = mat_A@(fid_alm)
     if uniform_noise:
         dnoisy, noise_covar = SM.add_noise_uniform(temps=d, err=unoise_K)
     elif not uniform_noise:
