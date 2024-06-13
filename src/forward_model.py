@@ -184,14 +184,14 @@ def calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax,
             mats_A.append(mat)
 
     if return_mat:
-        mat_A_bl = BlockMatrix(mat=mats_A)
-        mat_G_bl = BlockMatrix(mat=mats_G)
-        mat_P_bl = BlockMatrix(mat=mats_P)
-        mat_Y_bl = BlockMatrix(mat=mats_Y)
-        mat_B_bl = BlockMatrix(mat=mats_B)
+        mat_A_bl = BlockMatrix(mat=np.array(mats_A))
+        mat_G_bl = BlockMatrix(mat=np.array(mats_G))
+        mat_P_bl = BlockMatrix(mat=np.array(mats_P))
+        mat_Y_bl = BlockMatrix(mat=np.array(mats_Y))
+        mat_B_bl = BlockMatrix(mat=np.array(mats_B))
         return mat_A_bl, (mat_G_bl, mat_P_bl, mat_Y_bl, mat_B_bl)
     
-    return BlockMatrix(mat=mats_A)
+    return BlockMatrix(mat=np.array(mats_A))
 
 def calc_observation_matrix_all_pix_multifreq(nuarr, nside, lmax, Ntau, 
                                               beam_use=BF.beam_cos, 
