@@ -54,6 +54,47 @@ def fg_only():
     plt.show()
 
 
+def fg_only_chrom():
+    # Model and observation params
+    nside   = 32
+    lmax    = 32
+    lats = np.array([-26])#np.linspace(-80, 80, 100)#
+    times = np.linspace(0, 24, 12, endpoint=False)
+    Ntau  = 1
+    nuarr   = np.linspace(50,100,51)
+    narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
+
+    # Generate foreground alm
+    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
+
+    # Generate observation matrix for the modelling and for the observations.
+    mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=BF.fwhm_func_tauscher)
+    
+    # Perform fiducial observations
+    d = mat_A @ fg_alm
+    #dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e7, seed=456)
+
+    # Set up the foreground model
+    Npoly = 6
+    mod = FM.generate_binwise_forward_model(nuarr, mat_A, Npoly=Npoly)
+    def mod_cf(nuarr, *theta):
+        theta = np.array(theta)
+        return mod(theta)
+
+    # Try curve_fit:
+    p0 = [10, -2.5]
+    p0 += [0.01]*(Npoly-2)
+    res = curve_fit(mod_cf, nuarr, d.vector, p0=p0)
+    print("std dev [mK]:", np.std(1e3*(d.vector-mod(res[0]))))
+    plt.plot(d.vector, '.')
+    plt.plot(mod(res[0]), '.')
+    plt.ylabel("Temperature [K]")
+    plt.show()
+    plt.plot(1e3*(d.vector-mod(res[0])), '.')
+    plt.ylabel("Temperature [mK]")
+    plt.show()
+
+
 def fg_cm21():
     # Model and observation params
     nside   = 32
