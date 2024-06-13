@@ -274,7 +274,7 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     # Generate the data.
     nside = 32
     times = np.linspace(0, 6, 3)
-    noise = 2e-5
+    noise = 0.01#2e-5
     lats  = [26]
     Ntau  = 1
     dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
@@ -285,7 +285,8 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
         lmax = lmax,
         nside = nside,
         lats=lats,
-        delta=1e-1
+        delta=1e-1,
+        chrom=True
     )
     plt.plot(dnoisy.vector, '.', label='mock data')
     plt.xlabel("bin")
