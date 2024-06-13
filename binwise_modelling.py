@@ -2,13 +2,8 @@
 Doing binwise multifrequency modelling to see if any of the methods we're
 developing actually perform better.
 """
-from pygdsm import GlobalSkyModel2016
-import healpy as hp
 import numpy as np
-from numpy.linalg import svd
-from scipy.special import eval_legendre
 import matplotlib.pyplot as plt
-import seaborn as sns
 from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
 
@@ -16,9 +11,7 @@ import src.beam_functions as BF
 import src.spherical_harmonics as SH
 import src.forward_model as FM
 import src.sky_models as SM
-import src.map_making as MM
-import src.plotting as PL
-from src.blockmat import BlockMatrix, BlockVector
+from src.blockmat import BlockMatrix
 
 RS = SH.RealSphericalHarmonics()
 
