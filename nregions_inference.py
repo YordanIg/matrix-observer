@@ -39,7 +39,7 @@ default_pars = {
 }
 
 def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None, 
-                 Ntau=None, lmax=None, nside=None, lats=None, delta=None):
+                 Ntau=None, lmax=None, nside=None, lats=None, delta=None, chrom=False):
     """
     Forward model the fiducial degraded GSMA.
 
@@ -80,8 +80,11 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
     fg_alm, og_map = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, use_mat_Y=True, nside=nside, original_map=True, delta=delta)
 
     times = np.linspace(0,24,3, endpoint=False)
-    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
-
+    if not chrom:
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
+    elif chrom:
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=BF.fwhm_func_tauscher, return_mat=True)
+    
     d = mat_A@(fg_alm)
     if uniform_noise:
         dnoisy, noise_covar = SM.add_noise_uniform(temps=d, err=unoise_K)
