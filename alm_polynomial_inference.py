@@ -274,16 +274,18 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     # Generate the data.
     nside = 32
     times = np.linspace(0, 6, 3)
-    noise = 0.01
-    lats  = [-26, 26]
+    noise = 2e-5
+    lats  = [26]
+    Ntau  = 1
     dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
         uniform_noise=True,
         unoise_K = noise,
         times = times,
-        Ntau = len(times),
+        Ntau = Ntau,
         lmax = lmax,
         nside = nside,
-        lats=lats
+        lats=lats,
+        delta=1e-1
     )
     plt.plot(dnoisy.vector, '.', label='mock data')
     plt.xlabel("bin")
@@ -302,7 +304,7 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     theta_guess = fitlist.flatten()
 
     # Instantiate the model.
-    mod   = FM.genopt_alm_plfid_forward_model(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
+    mod = FM.genopt_alm_plfid_forward_model(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
 
     # create a small ball around the MLE the initialize each walker
     nwalkers, fg_dim = 64, Npoly*RS.get_size(lmod)
@@ -329,4 +331,3 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     plt.xlabel("bin")
     plt.ylabel("Temp residuals [K]")
     plt.show()
-
