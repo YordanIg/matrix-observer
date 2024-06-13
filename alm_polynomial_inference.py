@@ -275,7 +275,7 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     nside = 32
     times = np.linspace(0, 6, 3)
     noise = 0.01#2e-5
-    lats  = [26]
+    lats  = [-26]
     Ntau  = 1
     dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
         uniform_noise=True,
@@ -310,6 +310,78 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     # create a small ball around the MLE the initialize each walker
     nwalkers, fg_dim = 64, Npoly*RS.get_size(lmod)
     ndim = fg_dim
+    pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+
+    # run emcee without priors
+    err = np.sqrt(noise_covar.diag)
+    sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
+                        args=(dnoisy.vector, err, mod))
+    _=sampler.run_mcmc(pos, nsteps=steps, progress=True)
+    chain = sampler.get_chain(flat=True, discard=burn_in)
+
+    # Plot chain.
+    c = ChainConsumer()
+    c.add_chain(chain)
+    f = c.plotter.plot()
+    plt.show()
+
+    # Plot residuals to fit.
+    theta_inferred = np.mean(chain, axis=0)
+    d_inferred = mod(theta_inferred)
+    plt.errorbar(range(len(dnoisy.vector)), dnoisy.vector-d_inferred, err, fmt='.')
+    plt.xlabel("bin")
+    plt.ylabel("Temp residuals [K]")
+    plt.show()
+
+
+def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_in=1000):
+    """
+    Forward-model fit the first lmod alms of the foreground polynomial model and
+    the Gaussian 21-cm monopole,
+    and take the rest of the alms to be the fiducial values.
+    """
+    # Generate the data.
+    nside = 32
+    times = np.linspace(0, 6, 3)
+    noise = 0.01#2e-5
+    lats  = [-26]
+    Ntau  = 1
+    cm21_mon_pars = [-0.2, 80.0, 5.0]
+    dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
+        uniform_noise=True,
+        unoise_K = noise,
+        times = times,
+        Ntau = Ntau,
+        lmax = lmax,
+        nside = nside,
+        lats=lats,
+        cm21_pars=cm21_mon_pars,
+        delta=1e-1,
+        chrom=True
+    )
+    plt.plot(dnoisy.vector, '.', label='mock data')
+    plt.xlabel("bin")
+    plt.ylabel("Temp [K]")
+    plt.show()
+
+    # Compute the 0<l<lmod alm polynomial parameters as an initial guess for the
+    # inference, and store the lmod<l<lmax alms to use as the fiducial correction.
+    nuarr = NRI.nuarr
+    a = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
+    a_sep = np.array(np.split(a, len(nuarr)))
+    Nlmod = RS.get_size(lmax=lmod)
+    alms_for_guess = a_sep.T[:Nlmod]
+    alms_for_corr  = a_sep.T[Nlmod:]
+    fitlist=_fit_alms(nuarr=nuarr, alm_list=alms_for_guess, Npoly=Npoly)
+    theta_guess = fitlist.flatten()
+    theta_guess = np.append(theta_guess, cm21_mon_pars)
+
+    # Instantiate the model.
+    mod = FM.genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
+
+    # create a small ball around the MLE the initialize each walker
+    nwalkers, fg_dim = 64, Npoly*Nlmod
+    ndim = fg_dim + len(cm21_mon_pars)
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
 
     # run emcee without priors
