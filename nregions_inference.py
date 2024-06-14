@@ -211,7 +211,7 @@ def log_prior_gauss(theta, prior_pars):
     return np.sum(-.5 * ((theta-means)/stds)**2)
 
 def log_posterior(theta, y, yerr, model, prior_pars):
-    lp = log_prior_gauss(theta, prior_pars)
+    lp = log_prior(theta, prior_pars)
     if np.isfinite(lp):
         lp += log_likelihood(theta, y, yerr, model)
     return lp
