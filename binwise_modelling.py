@@ -49,8 +49,8 @@ def fg_only():
     plt.plot(mod(res[0]), '.')
     plt.ylabel("Temperature [K]")
     plt.show()
-    plt.plot(1e3*(d.vector-mod(res[0])), '.')
-    plt.ylabel("Temperature [mK]")
+    plt.plot(d.vector-mod(res[0]), '.')
+    plt.ylabel("Temperature [K]")
     plt.show()
 
 
@@ -75,7 +75,7 @@ def fg_only_chrom():
     #dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e7, seed=456)
 
     # Set up the foreground model
-    Npoly = 6
+    Npoly = 5
     mod = FM.generate_binwise_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
@@ -90,8 +90,8 @@ def fg_only_chrom():
     plt.plot(mod(res[0]), '.')
     plt.ylabel("Temperature [K]")
     plt.show()
-    plt.plot(1e3*(d.vector-mod(res[0])), '.')
-    plt.ylabel("Temperature [mK]")
+    plt.plot(d.vector-mod(res[0]), '.')
+    plt.ylabel("Temperature [K]")
     plt.show()
 
 
@@ -214,8 +214,8 @@ def fg_cm21_chrom():
     nside   = 32
     lmax    = 32
     Nlmax   = RS.get_size(lmax)
-    lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 24, 12, endpoint=False)
+    lats = [-26]#np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
+    times = np.linspace(0, 6, 3)
     Ntau  = 1
     nuarr = np.linspace(50,100,51)
     cm21_params     = [-0.2, 80.0, 5.0]
@@ -237,7 +237,7 @@ def fg_cm21_chrom():
 
 
     # Set up the foreground model
-    Npoly = 3
+    Npoly = 5
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
