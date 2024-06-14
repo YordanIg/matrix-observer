@@ -6,11 +6,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
+from emcee import EnsembleSampler
+from chainconsumer import ChainConsumer
 
 import src.beam_functions as BF
 import src.spherical_harmonics as SH
 import src.forward_model as FM
 import src.sky_models as SM
+import nregions_inference as NRI
 from src.blockmat import BlockMatrix
 
 RS = SH.RealSphericalHarmonics()
@@ -54,7 +57,7 @@ def fg_only():
     plt.show()
 
 
-def fg_only_chrom():
+def fg_only_chrom(mcmc=False):
     # Model and observation params
     nside   = 32
     lmax    = 32
@@ -72,7 +75,7 @@ def fg_only_chrom():
 
     # Perform fiducial observations
     d = mat_A @ fg_alm
-    #dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e7, seed=456)
+    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=1e7, seed=456)
 
     # Set up the foreground model
     Npoly = 5
@@ -84,13 +87,33 @@ def fg_only_chrom():
     # Try curve_fit:
     p0 = [10, -2.5]
     p0 += [0.01]*(Npoly-2)
-    res = curve_fit(mod_cf, nuarr, d.vector, p0=p0)
-    print("std dev [mK]:", np.std(1e3*(d.vector-mod(res[0]))))
-    plt.plot(d.vector, '.')
+    res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0)
+    if mcmc:
+        # create a small ball around the MLE the initialize each walker
+        nwalkers, fg_dim = 64, Npoly
+        ndim = fg_dim
+        pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+
+        # run emcee without priors
+        err = np.sqrt(noise_covar.diag)
+        sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
+                            args=(dnoisy.vector, err, mod))
+        _=sampler.run_mcmc(pos, nsteps=3000, progress=True)
+        chain = sampler.get_chain(flat=True, discard=1000)
+        theta_inferred = np.mean(chain, axis=0)
+        c = ChainConsumer()
+        c.add_chain(chain)
+        f = c.plotter.plot()
+        plt.show()
+
+    print("std dev [mK]:", np.std(1e3*(dnoisy.vector-mod(res[0]))))
+    plt.plot(dnoisy.vector, '.')
     plt.plot(mod(res[0]), '.')
     plt.ylabel("Temperature [K]")
     plt.show()
-    plt.plot(d.vector-mod(res[0]), '.')
+    plt.plot(dnoisy.vector-mod(res[0]), '.')
+    if mcmc:
+        plt.plot(dnoisy.vector-mod(theta_inferred), '.')
     plt.ylabel("Temperature [K]")
     plt.show()
 
