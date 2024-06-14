@@ -332,6 +332,8 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000):
     plt.xlabel("bin")
     plt.ylabel("Temp residuals [K]")
     plt.show()
+    print(f"Best-fit params:\n{theta_inferred}")
+    del mat_A
 
 
 def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_in=1000):
@@ -359,6 +361,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
         delta=1e-1,
         chrom=True
     )
+    err = np.sqrt(noise_covar.diag)
     plt.plot(dnoisy.vector, '.', label='mock data')
     plt.xlabel("bin")
     plt.ylabel("Temp [K]")
@@ -374,20 +377,24 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     alms_for_corr  = a_sep.T[Nlmod:]
     fitlist=_fit_alms(nuarr=nuarr, alm_list=alms_for_guess, Npoly=Npoly)
     theta_guess = fitlist.flatten()
+    print(fitlist.flatten())
     theta_guess = np.append(theta_guess, cm21_mon_pars)
 
     # Instantiate the model.
     mod = FM.genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
-
+    
     # create a small ball around the MLE the initialize each walker
     nwalkers, fg_dim = 64, Npoly*Nlmod
     ndim = fg_dim + len(cm21_mon_pars)
     pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
 
-    # run emcee without priors
-    err = np.sqrt(noise_covar.diag)
-    sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
-                        args=(dnoisy.vector, err, mod))
+    # run emcee with priors
+    priors = [[1, 25], [1.5, 3.5]]
+    priors += [[-1, 1]]*(Npoly-2)
+    priors += [[-0.5, -0.01], [60, 90], [1, 8]]
+    priors = np.array(priors)
+    sampler = EnsembleSampler(nwalkers, ndim, NRI.log_posterior, 
+                        args=(dnoisy.vector, err, mod, priors))
     _=sampler.run_mcmc(pos, nsteps=steps, progress=True)
     chain = sampler.get_chain(flat=True, discard=burn_in)
 
@@ -404,3 +411,5 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     plt.xlabel("bin")
     plt.ylabel("Temp residuals [K]")
     plt.show()
+
+    del mat_A
