@@ -260,7 +260,7 @@ def fg_cm21_chrom():
 
 
     # Set up the foreground model
-    Npoly = 5
+    Npoly = 6
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
