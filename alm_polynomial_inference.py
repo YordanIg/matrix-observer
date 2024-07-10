@@ -345,7 +345,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     """
     # Generate the data.
     nside = 32
-    times = np.linspace(0, 6, 3)
+    times = np.linspace(0, 24, 3, endpoint=False)
     noise = 0.01#2e-5
     lats  = [-26]
     Ntau  = 1
@@ -384,10 +384,11 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     theta_guess = fitlist.flatten()
     print(fitlist.flatten())
     theta_guess = np.append(theta_guess, cm21_mon_pars)
+    np.save("mat_A_1",mat_A.block)
 
     # Instantiate the model.
     mod = FM.genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
-    
+
     # create a small ball around the MLE the initialize each walker
     nwalkers, fg_dim = 64, Npoly*Nlmod
     ndim = fg_dim + len(cm21_mon_pars)
@@ -477,7 +478,7 @@ def plot_chain_with21cm(lmax, lmod, Npoly, savetag, burn_in=1000):
     alms_for_corr  = a_sep.T[Nlmod:]
 
     mod = FM.genopt_alm_plfid_forward_model_with21cm(pars['nuarr'], observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
-    
+
     _plot_inference(chain=chain_flat, dnoisy_vector=data, model=mod)
     
     # Plot the 21-cm signal.
