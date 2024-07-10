@@ -118,7 +118,7 @@ def fg_only_chrom(mcmc=False):
     plt.show()
 
 
-def fg_cm21():
+def fg_cm21(Npoly=3, mcmc=False):
     # Model and observation params
     nside   = 32
     lmax    = 32
@@ -147,7 +147,6 @@ def fg_cm21():
 
 
     # Set up the foreground model
-    Npoly = 3
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
@@ -157,12 +156,35 @@ def fg_cm21():
     p0 = [10, -2.5]
     p0 += [0.01]*(Npoly-2)
     p0 += cm21_params
-    res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
+    res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag), method="dogbox")
 
+    # Compute chi-square.
+    residuals = dnoisy.vector - mod(res[0])
+    chi_sq = residuals @ noise_covar.matrix @ residuals
+    chi_sq = np.sum(residuals**2/noise_covar.diag)
+    print(f"Reduced chi square = {chi_sq/(len(dnoisy.vector)-(Npoly+3))}")
+
+    if mcmc:
+        # create a small ball around the MLE the initialize each walker
+        nwalkers, fg_dim = 64, Npoly+3
+        ndim = fg_dim
+        pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+
+        # run emcee without priors
+        err = np.sqrt(noise_covar.diag)
+        sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
+                            args=(dnoisy.vector, err, mod))
+        _=sampler.run_mcmc(pos, nsteps=3000, progress=True)
+        chain_mcmc = sampler.get_chain(flat=True, discard=1000)
+        theta_inferred = np.mean(chain_mcmc, axis=0)
+        c = ChainConsumer()
+        c.add_chain(chain_mcmc)
+        f = c.plotter.plot()
+        plt.show()
+    
     print("par est:", res[0])
     print("std devs:", np.sqrt(np.diag(res[1])))
-    print("chi-sq")
-    plt.plot(dnoisy.vector-mod(res[0]), '.')
+    plt.errorbar(range(len(dnoisy.vector)), dnoisy.vector-mod(res[0]), yerr=np.sqrt(noise_covar.diag), fmt='.')
     plt.xlabel("bin")
     plt.ylabel("data - model [K]")
     plt.show()
@@ -172,6 +194,8 @@ def fg_cm21():
     chain = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100000)
     c = ChainConsumer()
     c.add_chain(chain, parameters=['A', 'nu0', 'dnu'])
+    if mcmc:
+        c.add_chain(chain_mcmc[:,-3:])
     f = c.plotter.plot()
     plt.show()
 
@@ -232,7 +256,7 @@ def fg_cm21():
     plt.legend()
     plt.show()
 
-def fg_cm21_chrom():
+def fg_cm21_chrom(Npoly=3, mcmc=False):
     # Model and observation params
     nside   = 32
     lmax    = 32
@@ -258,9 +282,7 @@ def fg_cm21_chrom():
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
-
     # Set up the foreground model
-    Npoly = 6
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
@@ -271,6 +293,31 @@ def fg_cm21_chrom():
     p0 += [0.01]*(Npoly-2)
     p0 += cm21_params
     res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
+
+    # Compute chi-square.
+    residuals = dnoisy.vector - mod(res[0])
+    chi_sq = residuals @ noise_covar.matrix @ residuals
+    chi_sq = np.sum(residuals**2/noise_covar.diag)
+    print(f"Reduced chi square = {chi_sq/(len(dnoisy.vector)-(Npoly+3))}")
+
+    
+    if mcmc:
+        # create a small ball around the MLE to initialize each walker
+        nwalkers, fg_dim = 64, Npoly+3
+        ndim = fg_dim
+        pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+
+        # run emcee without priors
+        err = np.sqrt(noise_covar.diag)
+        sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
+                            args=(dnoisy.vector, err, mod))
+        _=sampler.run_mcmc(pos, nsteps=3000, progress=True)
+        chain_mcmc = sampler.get_chain(flat=True, discard=1000)
+        theta_inferred = np.mean(chain_mcmc, axis=0)
+        c = ChainConsumer()
+        c.add_chain(chain_mcmc)
+        f = c.plotter.plot()
+        plt.show()
 
     print("par est:", res[0])
     print("std devs:", np.sqrt(np.diag(res[1])))
@@ -285,6 +332,8 @@ def fg_cm21_chrom():
     chain = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100000)
     c = ChainConsumer()
     c.add_chain(chain, parameters=['A', 'nu0', 'dnu'])
+    if mcmc:
+        c.add_chain(chain_mcmc[:,-3:])
     f = c.plotter.plot()
     plt.show()
 
