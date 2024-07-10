@@ -87,7 +87,6 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         cm21_a00 = np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *cm21_pars)
         fid_alm[::Nlmax] += cm21_a00
 
-    times = np.linspace(0,24,3, endpoint=False)
     if not chrom:
         mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
     elif chrom:
