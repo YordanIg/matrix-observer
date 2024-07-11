@@ -409,6 +409,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     else:
         print(f"SAVING CHAIN AS lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_chain.npy")
         print(f"SAVING DATA AS lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_data.npy")
+        print(f"SAVING ERRORS AS lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_errs.npy")
         print(f"SAVING PARAMS AS lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_pars.pkl")
         if burn_in is not None:
             print("WARNING: ignoring burn-in value")
@@ -425,13 +426,14 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
         }
         np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_chain.npy", chain)
         np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_data.npy", dnoisy.vector)
+        np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_errs.npy", np.sqrt(noise_covar.diag))
         with open(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_pars.pkl", 'wb') as f:
             pickle.dump(pars, f)
 
     del mat_A
 
 
-def _plot_inference(chain, dnoisy_vector, model):
+def _plot_inference(chain, dnoisy_vector, model, errors):
     c = ChainConsumer()
     c.add_chain(chain)
     f = c.plotter.plot()
@@ -440,7 +442,14 @@ def _plot_inference(chain, dnoisy_vector, model):
     # Plot residuals to fit.
     theta_inferred = np.mean(chain, axis=0)
     d_inferred = model(theta_inferred)
-    plt.plot(dnoisy_vector-d_inferred, '.')
+    residuals = dnoisy_vector - d_inferred
+    if errors is None:
+        plt.plot(residuals, '.')
+    else:
+        plt.errorbar(np.linspace(50,100,51), residuals, errors, fmt='.')
+        # Compute chi-square.
+        chi_sq = np.sum(residuals**2/errors)
+        print(f"Reduced chi square = {chi_sq/(len(dnoisy_vector)-(len(chain[0])))}")
     plt.xlabel("bin")
     plt.ylabel("Temp residuals [K]")
     plt.show()
@@ -453,6 +462,7 @@ def plot_chain_with21cm(lmax, lmod, Npoly, savetag, burn_in=1000):
     """
     chain = np.load(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_chain.npy")
     data  = np.load(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_data.npy")
+    errs  = np.load(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_errs.npy")
 
     # Reshape and burn in the chain.
     chain = chain[burn_in:]
@@ -479,7 +489,7 @@ def plot_chain_with21cm(lmax, lmod, Npoly, savetag, burn_in=1000):
 
     mod = FM.genopt_alm_plfid_forward_model_with21cm(pars['nuarr'], observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
 
-    _plot_inference(chain=chain_flat, dnoisy_vector=data, model=mod)
+    _plot_inference(chain=chain_flat, dnoisy_vector=data, model=mod, errors=errs)
     
     # Plot the 21-cm signal.
     chain_sample_indx = np.random.choice(len(chain_flat), 1000)
