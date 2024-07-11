@@ -9,6 +9,7 @@ from chainconsumer import ChainConsumer
 from numba import jit
 
 import nregions_inference as NRI
+import src.observing as OBS
 import src.sky_models as SM
 import src.forward_model as FM
 import src.beam_functions as BF
@@ -337,7 +338,7 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000, s
     del mat_A
 
 
-def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_in=1000, savetag=None):
+def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_in=1000, savetag=None, basemap_err=5, chrom=None):
     """
     Forward-model fit the first lmod alms of the foreground polynomial model and
     the Gaussian 21-cm monopole,
@@ -346,15 +347,13 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     # Generate the data.
     nside = 32
     times = np.linspace(0, 24, 3, endpoint=False)
-    noise = 0.01#2e-5
+    noise = 0.01
     lats  = [-26]
     Ntau  = 1
     cm21_mon_pars = [-0.2, 80.0, 5.0]
+    delta = SM.basemap_err_to_delta(percent_err=basemap_err)
 
-    chrom = True
-    delta = 1e-1
-
-    dnoisy, noise_covar, mat_A, mat_Y, params = NRI.fiducial_obs(
+    dnoisy, noise_covar, mat_A, mat_Y, params = OBS.fiducial_obs(
         uniform_noise=True,
         unoise_K = noise,
         times = times,
@@ -367,10 +366,6 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
         chrom=chrom
     )
     err = np.sqrt(noise_covar.diag)
-    plt.plot(dnoisy.vector, '.', label='mock data')
-    plt.xlabel("bin")
-    plt.ylabel("Temp [K]")
-    plt.show()
 
     # Compute the 0<l<lmod alm polynomial parameters as an initial guess for the
     # inference, and store the lmod<l<lmax alms to use as the fiducial correction.
@@ -384,7 +379,6 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     theta_guess = fitlist.flatten()
     print(fitlist.flatten())
     theta_guess = np.append(theta_guess, cm21_mon_pars)
-    np.save("mat_A_1",mat_A.block)
 
     # Instantiate the model.
     mod = FM.genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
@@ -429,7 +423,6 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
         np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_errs.npy", np.sqrt(noise_covar.diag))
         with open(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_pars.pkl", 'wb') as f:
             pickle.dump(pars, f)
-
     del mat_A
 
 
@@ -521,3 +514,16 @@ def plot_chain_with21cm(lmax, lmod, Npoly, savetag, burn_in=1000):
     plt.ylabel("21-cm monopole temperature [K]")
     plt.legend()
     plt.show()
+
+
+if __name__=="__main__":
+    Npoly_list = [5, 6, 7, 8]
+    chrom_list = [1.6e-2, 3.4e-2]
+
+    for Npoly in Npoly_list:
+        for chrom in chrom_list:
+            if chrom == 1.6e-2:
+                chromlab = '1'
+            elif chrom == 3.4e-2:
+                chromlab = '3'
+            compare_fm_fid_reconstruction_with21cm(lmax=32, lmod=0, Npoly=Npoly, steps=7000, savetag=f"chrom{chromlab}_bmerr", basemap_err=5, chrom=chrom)
