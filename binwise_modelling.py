@@ -124,7 +124,7 @@ def fg_cm21(Npoly=3, mcmc=False):
     lmax    = 32
     Nlmax   = RS.get_size(lmax)
     lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 24, 12, endpoint=False)
+    times = times = np.linspace(0, 24, 3, endpoint=False)
     Nbin  = len(lats)*len(times)
     nuarr   = np.linspace(50,100,51)
     cm21_params     = [-0.2, 80.0, 5.0]
@@ -141,7 +141,7 @@ def fg_cm21(Npoly=3, mcmc=False):
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, dnu=1, Ntau=1, t_int=100, seed=456)
+    dnoisy, noise_covar = SM.add_noise_uniform(d, 0.01)
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
@@ -262,11 +262,10 @@ def fg_cm21_chrom(Npoly=3, mcmc=False):
     lmax    = 32
     Nlmax   = RS.get_size(lmax)
     lats = [-26]#np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 6, 3)
+    times = np.linspace(0, 24, 3, endpoint=False)
     Ntau  = 1
     nuarr = np.linspace(50,100,51)
     cm21_params     = [-0.2, 80.0, 5.0]
-    narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
 
     # Generate foreground and 21-cm alm
     fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
@@ -278,7 +277,7 @@ def fg_cm21_chrom(Npoly=3, mcmc=False):
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, dnu=1, Ntau=Ntau, t_int=100, seed=456)
+    dnoisy, noise_covar = SM.add_noise_uniform(d, 0.01)
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
