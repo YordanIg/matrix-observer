@@ -422,6 +422,13 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 nside=nside, map=map)
 
+def basemap_err_to_delta(percent_err):
+    """
+    Roughly calculate the delta error in GSMA power law index required for a 
+    given basemap error, taking the basemap error AS A PERCENTAGE.
+    """
+    return np.log(percent_err*1e-2 + 1) / np.log(408/230)
+
 def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, delta=None):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
