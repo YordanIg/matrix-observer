@@ -1,6 +1,7 @@
 """
 Make actual observations!
 """
+from functools import partial
 import numpy as np
 
 import src.beam_functions as BF
@@ -46,6 +47,10 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         Gaussian width of uncertainty to add to the default GSMA indices - used
         to generate different "instances" of the foregrounds. Leave as None to 
         use the default GSMA.
+    chrom
+        Whether to use chromatic beams or not. If "None" or "False", no 
+        chromaticity. If "True", uses the default value of c=2.4e-2 from 
+        Tauscher et al 2020. Can also pass custon values for the c parameter.
     cm21_pars
         The Gaussian monopole parameters (A, nu0, dnu). If None, no monopole is
         included.
@@ -71,12 +76,18 @@ def fiducial_obs(uniform_noise=False, unoise_K=None, tint=None, times=None,
         Nlmax = RS.get_size(lmax)
         cm21_a00 = np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *cm21_pars)
         fid_alm[::Nlmax] += cm21_a00
-
-    if not chrom:
-        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
-    elif chrom:
-        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=BF.fwhm_func_tauscher, return_mat=True)
     
+    if isinstance(chrom, bool):
+        if not chrom:
+            mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
+        elif chrom:
+            mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=BF.fwhm_func_tauscher, return_mat=True)
+    else:
+        if chrom is None:
+            mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr=nuarr, nside=nside, lmax=lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
+        elif chrom is not None:
+            chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
+            mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc, return_mat=True)
 
     d = mat_A@(fid_alm)
     if uniform_noise:
