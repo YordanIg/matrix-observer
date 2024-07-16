@@ -429,7 +429,7 @@ def basemap_err_to_delta(percent_err):
     """
     return np.log(percent_err*1e-2 + 1) / np.log(408/230)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, delta=None):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, delta=None, const_idx=False):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -451,12 +451,17 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
 
     If delta is not None, will add this width of Gaussian random error to each
     of the indexes of the sky.
+
+    If const_index is true, will scale the Haslam map back with a constant power
+    law index of -2.5.
     '''
     #load the gsma indexes
     if nside is None:
         nside=16
     try:
         T_408, indexes = np.load(ROOT+f'/anstey/indexes_{nside}.npy')
+        if const_idx:
+            indexes = -2.5*np.ones_like(indexes)
     except:
         raise Exception(f"Indexes for the Anstey sky nside={nside} have not been "\
                         +"generated.")
@@ -475,3 +480,15 @@ def foreground_gsma_nsidelo(nu, nside=None):
     if gsma_map.shape[0] == 1:
         return gsma_map.flatten()
     return gsma_map
+
+def haslam_scaled_map(nu, nside=None):
+    """
+    Simply returns the degraded Haslam map scaled back with a fixed power law
+    index of -2.5.
+    """
+    _, hl_map = foreground_gsma_alm_nsidelo(nu, original_map=True, 
+                                            nside=nside, const_idx=True)
+    if hl_map.shape[0] == 1:
+        return hl_map.flatten()
+    return hl_map
+    
