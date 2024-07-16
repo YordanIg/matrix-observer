@@ -16,7 +16,7 @@ import src.spherical_harmonics as SH
 import src.forward_model as FM
 import src.sky_models as SM
 import nregions_inference as NRI
-from src.blockmat import BlockMatrix
+from src.blockmat import BlockMatrix, BlockVector
 
 RS = SH.RealSphericalHarmonics()
 
@@ -400,7 +400,7 @@ def fg_cm21_chrom(Npoly=3, mcmc=False, chrom=None):
     plt.show()
 
 
-def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None):
+def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     """
     NOTE: will NOT work if Ntau != 1.
     """
@@ -413,9 +413,10 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None):
     Ntau  = 1
     nuarr = np.linspace(50,100,51)
     cm21_params     = [-0.2, 80.0, 5.0]
+    delta = SM.basemap_err_to_delta(percent_err=basemap_err)
 
     # Generate foreground and 21-cm alm
-    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
+    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=delta)
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
     fid_alm  = fg_alm + cm21_alm
     
@@ -441,8 +442,8 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None):
     chrom_corr_denom = mat_A_ref @ has_alm
     
     chrom_corr = chrom_corr_numerator.vector/chrom_corr_denom.vector
-    dnoisy /= chrom_corr
-
+    dnoisy = BlockVector(vec=dnoisy.vector/chrom_corr, nblock=dnoisy.nblock)
+    
     # Set up the foreground model
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
