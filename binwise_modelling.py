@@ -258,7 +258,7 @@ def fg_cm21(Npoly=3, mcmc=False):
     plt.legend()
     plt.show()
 
-def fg_cm21_chrom(Npoly=3, mcmc=False):
+def fg_cm21_chrom(Npoly=3, mcmc=False, chrom=None):
     # Model and observation params
     nside   = 32
     lmax    = 32
@@ -275,7 +275,11 @@ def fg_cm21_chrom(Npoly=3, mcmc=False):
     fid_alm  = fg_alm + cm21_alm
     
     # Generate observation matrix for the modelling and for the observations.
-    mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=BF.fwhm_func_tauscher)
+    if chrom is None:
+        chromfunc = BF.fwhm_func_tauscher
+    else:
+        chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
+    mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
@@ -437,7 +441,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None):
     chrom_corr_denom = mat_A_ref @ has_alm
     
     chrom_corr = chrom_corr_numerator.vector/chrom_corr_denom.vector
-    d /= chrom_corr
+    dnoisy /= chrom_corr
 
     # Set up the foreground model
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
