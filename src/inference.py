@@ -2,6 +2,7 @@
 Define likelihoods, priors, etc.
 """
 import numpy as np
+from pypolychord.priors import UniformPrior
 
 ################################################################################
 # Emcee
@@ -65,3 +66,18 @@ def log_posterior(theta, y, yerr, model, prior_pars):
 ################################################################################
 # Polychord
 ################################################################################
+
+def get_polychord_loglikelihood(y, yerr, model):
+    def likelihood(theta):
+        return log_likelihood(theta, y=y, yerr=yerr, model=model), []
+    return likelihood
+
+def prior(hypercube):
+    """ Uniform prior from [-1,1]^D. """
+    return UniformPrior(-1, 1)(hypercube)
+
+#| Optional dumper function giving run-time read access to
+#| the live points, dead points, weights and evidences
+
+def dumper(live, dead, logweights, logZ, logZerr):
+    print("Last dead point:", dead[-1])
