@@ -141,3 +141,29 @@ def calc_full_unmodelled_mode_matrix(lmod, lmax, nside, foreground_power_spec,
     binpoint_mat = binning_mat@pointing_mat
     val = np.sum([((2*l+1)/(4*np.pi)) * eval_legendre(l, vector_difference) * foreground_power_spec[l] * beam_mat[l,l]**2 for l in range(lmod+1, lmax)], axis=0)
     return binpoint_mat@val@(binpoint_mat.T)
+
+
+def calc_full_unmodelled_mode_matrix_multifreq(lmod, lmax, nside, 
+                                               foreground_power_spec_list, 
+                                     beam_mat, binning_mat, pointing_mat):
+    """
+    Calculate the unmodelled mode matrix for the non-trivial observation 
+    strategy and binning of timeseries data into Ntau bins for Nfreq block
+    matrices.
+    """
+    npix = hp.nside2npix(nside)
+    vectors = hp.pix2vec(nside, ipix=list(range(npix)))
+    vectors = np.array(vectors).T
+    vector_difference = np.einsum("pi,qi->pq", vectors, vectors)
+    binpoint_mat = binning_mat.block[0]@pointing_mat.block[0]
+    legendre_list_zeros = np.zeros(shape=(lmod+1, npix, npix))
+    legendre_list_values = [eval_legendre(l, vector_difference) for l in range(lmod+1, lmax)]
+    legendre_list = np.append(legendre_list_zeros, legendre_list_values, axis=0)
+
+    mat_S = []
+    for mat_B_block, fps in zip(beam_mat.block, foreground_power_spec_list):
+        print("bam")
+        val = np.sum([((2*l+1)/(4*np.pi)) * legendre_list[l] * fps[l] * mat_B_block[l,l]**2 for l in range(lmod+1, lmax)], axis=0)
+        mat_S.append(binpoint_mat@val@(binpoint_mat.T))
+
+    return BlockMatrix(mat=np.array(mat_S))
