@@ -203,14 +203,14 @@ def nontrivial_obs_ndarrays():
     _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt():
+def nontrivial_obs_memopt(missing_modes=False):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
     """
     # Model and observation params
-    nside   = 32
-    lmax    = 32
+    nside   = 16
+    lmax    = 16
     lmod    = 3
     delta   = None
     Nlmax   = RS.get_size(lmax)
@@ -228,17 +228,31 @@ def nontrivial_obs_memopt():
     fid_alm  = fg_alm + cm21_alm
 
     # Generate observation matrix for the modelling and for the observations.
-    mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam)
+    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
     mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
-    mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam)
+    mat_G = BlockMatrix(mat=mat_G, mode='block', nblock=len(nuarr))
+    mat_P = BlockMatrix(mat=mat_P, mode='block', nblock=len(nuarr))
+    mat_B = BlockMatrix(mat=mat_B, mode='block', nblock=len(nuarr))
+    mat_A_mod, (mat_G_mod, mat_P_mod, mat_Y_mod, mat_B_mod) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
     mat_A_mod = BlockMatrix(mat=mat_A_mod, mode='block', nblock=len(nuarr))
-    
+            
     # Perform fiducial observations
     d = mat_A @ fid_alm
     dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=100, seed=456)#t_int=100, seed=456)#
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
+    # Optionally generate a missing-modes correction.
+    import time
+    start=time.time()
+    if missing_modes:
+        if lmax==lmod:
+            print("missing modes correction will not be computed - lmax=lmod")
+        elif lmax > lmod:
+            fps_list = [hp.alm2cl(RS.real2ComplexALM(fg_alm_set), lmax=lmax) for fg_alm_set in np.split(fg_alm, len(nuarr))]
+            mat_S = MM.calc_full_unmodelled_mode_matrix_multifreq(lmod, lmax, nside, foreground_power_spec_list=fps_list, beam_mat=mat_B, binning_mat=mat_G, pointing_mat=mat_P)
+            noise_covar += mat_S
+    print(f"MMM took {time.time()-start} sec")
     # Reconstruct the max likelihood estimate of the alm
     mat_Ws_and_covs = [MM.calc_ml_estimator_matrix(mat_A_mod_block, noise_covar_block, delta=delta, cond=True, cov=True) for mat_A_mod_block, noise_covar_block in zip(mat_A_mod.block, noise_covar.block)]
     mat_Ws, covs = zip(*mat_Ws_and_covs)
