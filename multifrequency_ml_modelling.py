@@ -2,6 +2,7 @@
 Using maximum-likelihood methods to reconstruct a_{00}(\nu), then fit a power
 law and a 21-cm signal to it.
 """
+from functools import partial
 import healpy as hp
 import numpy as np
 import matplotlib.pyplot as plt
@@ -203,7 +204,7 @@ def nontrivial_obs_ndarrays():
     _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt(missing_modes=False):
+def nontrivial_obs_memopt(chrom=None, missing_modes=False):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -228,13 +229,21 @@ def nontrivial_obs_memopt(missing_modes=False):
     fid_alm  = fg_alm + cm21_alm
 
     # Generate observation matrix for the modelling and for the observations.
-    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
-    mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
-    mat_G = BlockMatrix(mat=mat_G, mode='block', nblock=len(nuarr))
-    mat_P = BlockMatrix(mat=mat_P, mode='block', nblock=len(nuarr))
-    mat_B = BlockMatrix(mat=mat_B, mode='block', nblock=len(nuarr))
-    mat_A_mod, (mat_G_mod, mat_P_mod, mat_Y_mod, mat_B_mod) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
-    mat_A_mod = BlockMatrix(mat=mat_A_mod, mode='block', nblock=len(nuarr))
+    if chrom is not None:
+        if not isinstance(chrom, bool):
+            chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
+        else:
+            chromfunc = BF.fwhm_func_tauscher
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, lats=lats, times=times, return_mat=True, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+        mat_A_mod, (mat_G_mod, mat_P_mod, mat_Y_mod, mat_B_mod) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmod, lats=lats, times=times, return_mat=True, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+    elif chrom is None:
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
+        mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
+        mat_G = BlockMatrix(mat=mat_G, mode='block', nblock=len(nuarr))
+        mat_P = BlockMatrix(mat=mat_P, mode='block', nblock=len(nuarr))
+        mat_B = BlockMatrix(mat=mat_B, mode='block', nblock=len(nuarr))
+        mat_A_mod, (mat_G_mod, mat_P_mod, mat_Y_mod, mat_B_mod) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
+        mat_A_mod = BlockMatrix(mat=mat_A_mod, mode='block', nblock=len(nuarr))
             
     # Perform fiducial observations
     d = mat_A @ fid_alm
@@ -271,7 +280,7 @@ def nontrivial_obs_memopt(missing_modes=False):
     a00_error = np.array(alm_error[::Nlmod])
 
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
-    Npoly = 3
+    Npoly = 8
     fg_mon_p0 = [15, 2.5]
     fg_mon_p0 += [.001]*(Npoly-2)
     cm21_mon_p0 = [-0.2, 80, 5]
