@@ -2,6 +2,8 @@
 Reversing the forward-modelling process using maximum-likelihood methods.
 """
 import numpy as np
+from scipy.special import eval_legendre
+import healpy as hp
 from src.blockmat import BlockMatrix
 
 def calc_reg_matrix_exp(Nlmod, nuarr, dnu=1, pow=2.5):
@@ -124,3 +126,18 @@ def calc_ml_estimator_matrix(mat_A, mat_N, cov=False, delta=None, reg='L2', nuar
     if cov:
         return mat_W, map_covar
     return mat_W
+
+
+def calc_full_unmodelled_mode_matrix(lmod, lmax, nside, foreground_power_spec, 
+                                     beam_mat, binning_mat, pointing_mat):
+    """
+    Calculate the unmodelled mode matrix for the non-trivial observation 
+    strategy and binning of timeseries data into Ntau bins.
+    """
+    npix = hp.nside2npix(nside)
+    vectors = hp.pix2vec(nside, ipix=list(range(npix)))
+    vectors = np.array(vectors).T
+    vector_difference = np.einsum("pi,qi->pq", vectors, vectors)
+    binpoint_mat = binning_mat@pointing_mat
+    val = np.sum([((2*l+1)/(4*np.pi)) * eval_legendre(l, vector_difference) * foreground_power_spec[l] * beam_mat[l,l]**2 for l in range(lmod+1, lmax)], axis=0)
+    return binpoint_mat@val@(binpoint_mat.T)
