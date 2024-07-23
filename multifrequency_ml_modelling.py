@@ -204,7 +204,7 @@ def nontrivial_obs_ndarrays():
     _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt(chrom=None, missing_modes=False):
+def nontrivial_obs_memopt(chrom=None, missing_modes=False, reg_delta=None):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -260,20 +260,26 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False):
             noise_covar += mat_S
     
     # Reconstruct the max likelihood estimate of the alm
-    mat_Ws_and_covs = [MM.calc_ml_estimator_matrix(mat_A_mod_block, noise_covar_block, delta=delta, cond=True, cov=True) for mat_A_mod_block, noise_covar_block in zip(mat_A_mod.block, noise_covar.block)]
-    mat_Ws, covs = zip(*mat_Ws_and_covs)
-    cov = BlockMatrix(mat=np.array(covs))
-    alm_error = np.sqrt(cov.diag)
-    mat_W = BlockMatrix(mat=np.array(mat_Ws))
-    rec_alm = mat_W @ dnoisy
+    if reg_delta is None:                                                       # will keep everything as blockvectors
+        mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar, cov=True)
+        alm_error = np.sqrt(cov.diag)
+        rec_alm = mat_W @ dnoisy
+        # Compute the chi-square and compare it to the length of the data vector.
+        chi_sq = (dnoisy - mat_A_mod@rec_alm).T @ noise_covar.inv @ (dnoisy - mat_A_mod@rec_alm)
+        chi_sq = sum(chi_sq.diag)
+        print("Chi-square:", chi_sq, "len(data):", dnoisy.vec_len,"+/-", np.sqrt(2*dnoisy.vec_len), "Nparams:", Nlmod*len(nuarr))
+        
+        rec_a00 = np.array(rec_alm.vector[::Nlmod])
+    
+    elif reg_delta is not None:                                                 # will convert everything to numpy arrays
+        mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar, cov=True, reg='exp', nuarr=nuarr, pow=-2.5, delta=reg_delta)
+        alm_error = np.sqrt(np.diag(cov))
+        rec_alm = mat_W @ dnoisy.vector
+        rec_a00 = np.array(rec_alm[::Nlmod])
+
  
-    # Compute the chi-square and compare it to the length of the data vector.
-    chi_sq = (dnoisy - mat_A_mod@rec_alm).T @ noise_covar.inv @ (dnoisy - mat_A_mod@rec_alm)
-    chi_sq = sum(chi_sq.diag)
-    print("Chi-square:", chi_sq, "len(data):", dnoisy.vec_len,"+/-", np.sqrt(2*dnoisy.vec_len), "Nparams:", Nlmod*len(nuarr))
 
     # Extract the monopole component of the reconstructed alm.
-    rec_a00 = np.array(rec_alm.vector[::Nlmod])
     a00_error = np.array(alm_error[::Nlmod])
 
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
@@ -283,7 +289,10 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False):
     cm21_mon_p0 = [-0.2, 80, 5]
     res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
 
-    _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
+    if reg_delta is None:
+        _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
+    elif reg_delta is not None:
+        _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
 def nontrivial_fg_obs_memopt(ret=False):
