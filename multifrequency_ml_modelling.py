@@ -210,8 +210,8 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False):
     of each frequency seperately, then brings them all together.
     """
     # Model and observation params
-    nside   = 16
-    lmax    = 16
+    nside   = 32
+    lmax    = 32
     lmod    = 3
     delta   = None
     Nlmax   = RS.get_size(lmax)
@@ -252,16 +252,13 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False):
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
     # Optionally generate a missing-modes correction.
-    import time
-    start=time.time()
     if missing_modes:
         if lmax==lmod:
             print("missing modes correction will not be computed - lmax=lmod")
         elif lmax > lmod:
-            fps_list = [hp.alm2cl(RS.real2ComplexALM(fg_alm_set), lmax=lmax) for fg_alm_set in np.split(fg_alm, len(nuarr))]
-            mat_S = MM.calc_full_unmodelled_mode_matrix_multifreq(lmod, lmax, nside, foreground_power_spec_list=fps_list, beam_mat=mat_B, binning_mat=mat_G, pointing_mat=mat_P)
+            mat_S = MM.calc_nongauss_unmodelled_mode_matrix(lmod=lmod, alm_vector=fg_alm, mat_A_blocks=mat_A.block)
             noise_covar += mat_S
-    print(f"MMM took {time.time()-start} sec")
+    
     # Reconstruct the max likelihood estimate of the alm
     mat_Ws_and_covs = [MM.calc_ml_estimator_matrix(mat_A_mod_block, noise_covar_block, delta=delta, cond=True, cov=True) for mat_A_mod_block, noise_covar_block in zip(mat_A_mod.block, noise_covar.block)]
     mat_Ws, covs = zip(*mat_Ws_and_covs)

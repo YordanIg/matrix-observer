@@ -5,6 +5,8 @@ import numpy as np
 from scipy.special import eval_legendre
 import healpy as hp
 from src.blockmat import BlockMatrix
+from src.spherical_harmonics import RealSphericalHarmonics
+RS = RealSphericalHarmonics()
 
 def calc_reg_matrix_exp(Nlmod, nuarr, dnu=1, pow=2.5):
     """
@@ -128,42 +130,24 @@ def calc_ml_estimator_matrix(mat_A, mat_N, cov=False, delta=None, reg='L2', nuar
     return mat_W
 
 
-def calc_full_unmodelled_mode_matrix(lmod, lmax, nside, foreground_power_spec, 
-                                     beam_mat, binning_mat, pointing_mat):
+def calc_nongauss_unmodelled_mode_matrix(lmod: int,
+                                         alm_vector: np.ndarray, 
+                                         mat_A_blocks: np.ndarray):
     """
-    Calculate the unmodelled mode matrix for the non-trivial observation 
-    strategy and binning of timeseries data into Ntau bins.
+    Calculate the unmodelled mode matrix:
+        S_{ij} = \sum_{k,l>N_{lmod + 1}} A_{ik} a_k a_l A_{jl}
+    
+    Must pass observation matrix argument as numpy array.
+
+    For a technically accurate answer, should really pass alm_vector as the mean
+    of a collection of simulated foregrounds.
     """
-    npix = hp.nside2npix(nside)
-    vectors = hp.pix2vec(nside, ipix=list(range(npix)))
-    vectors = np.array(vectors).T
-    vector_difference = np.einsum("pi,qi->pq", vectors, vectors)
-    binpoint_mat = binning_mat@pointing_mat
-    val = np.sum([((2*l+1)/(4*np.pi)) * eval_legendre(l, vector_difference) * foreground_power_spec[l] * beam_mat[l,l]**2 for l in range(lmod+1, lmax)], axis=0)
-    return binpoint_mat@val@(binpoint_mat.T)
-
-
-def calc_full_unmodelled_mode_matrix_multifreq(lmod, lmax, nside, 
-                                               foreground_power_spec_list, 
-                                     beam_mat, binning_mat, pointing_mat):
-    """
-    Calculate the unmodelled mode matrix for the non-trivial observation 
-    strategy and binning of timeseries data into Ntau bins for Nfreq block
-    matrices.
-    """
-    npix = hp.nside2npix(nside)
-    vectors = hp.pix2vec(nside, ipix=list(range(npix)))
-    vectors = np.array(vectors).T
-    vector_difference = np.einsum("pi,qi->pq", vectors, vectors)
-    binpoint_mat = binning_mat.block[0]@pointing_mat.block[0]
-    legendre_list_zeros = np.zeros(shape=(lmod+1, npix, npix))
-    legendre_list_values = [eval_legendre(l, vector_difference) for l in range(lmod+1, lmax)]
-    legendre_list = np.append(legendre_list_zeros, legendre_list_values, axis=0)
-
-    mat_S = []
-    for mat_B_block, fps in zip(beam_mat.block, foreground_power_spec_list):
-        print("bam")
-        val = np.sum([((2*l+1)/(4*np.pi)) * legendre_list[l] * fps[l] * mat_B_block[l,l]**2 for l in range(lmod+1, lmax)], axis=0)
-        mat_S.append(binpoint_mat@val@(binpoint_mat.T))
-
-    return BlockMatrix(mat=np.array(mat_S))
+    Nlmod = RS.get_size(lmod)
+    Nfreq = len(mat_A_blocks)
+    mat_S_blocks = []
+    for mat_A_block, alm_block in zip(mat_A_blocks, np.split(alm_vector, Nfreq)):
+        alm_unmodelled_corr = np.outer(alm_block[Nlmod:], alm_block[Nlmod:])
+        mat_A_unmodelled    = mat_A_block[:,Nlmod:]
+        mat_S_blocks.append(mat_A_unmodelled@alm_unmodelled_corr@(mat_A_unmodelled.T))
+    mat_S = BlockMatrix(np.array(mat_S_blocks))
+    return mat_S
