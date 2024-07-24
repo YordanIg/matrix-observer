@@ -429,7 +429,7 @@ def basemap_err_to_delta(percent_err):
     """
     return np.log(percent_err*1e-2 + 1) / np.log(408/230)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, delta=None, const_idx=False, seed=None):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, seed=None):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -449,11 +449,15 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
 
     If use_mat_Y is True, calculates/uses the spherical harmonic matrix Y.
 
+    If const_index is true, will scale the Haslam map back with a constant power
+    law index of -2.5.
+
+    GENERATING DIFFERENT FOREGROUND INSTANCES:
+
     If delta is not None, will add this width of Gaussian random error to each
     of the indexes of the sky.
 
-    If const_index is true, will scale the Haslam map back with a constant power
-    law index of -2.5.
+    Seed is the random seed to do this.
     '''
     #load the gsma indexes
     if nside is None:
