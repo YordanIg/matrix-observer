@@ -429,7 +429,7 @@ def basemap_err_to_delta(percent_err):
     """
     return np.log(percent_err*1e-2 + 1) / np.log(408/230)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, delta=None, const_idx=False):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, delta=None, const_idx=False, seed=None):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -466,7 +466,9 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
         raise Exception(f"Indexes for the Anstey sky nside={nside} have not been "\
                         +"generated.")
     if delta is not None:
-        np.random.seed(123)
+        if seed is None:
+            seed=123
+        np.random.seed(seed)
         indexes = np.random.normal(loc=indexes, scale=delta)
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 map=map, original_map=original_map, use_mat_Y=use_mat_Y)
