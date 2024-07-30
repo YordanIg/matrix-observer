@@ -204,7 +204,7 @@ def nontrivial_obs_ndarrays():
     _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt(chrom=None, missing_modes=False, reg_delta=None):
+def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_delta=None):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -213,10 +213,8 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, reg_delta=None):
     nside   = 32
     lmax    = 32
     lmod    = 3
-    delta   = None
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
-    npix    = hp.nside2npix(nside)
     lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
@@ -224,7 +222,7 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, reg_delta=None):
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
 
     # Generate foreground and 21-cm signal alm
-    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
+    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(percent_err=basemap_err))
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
     fid_alm  = fg_alm + cm21_alm
 
@@ -235,14 +233,14 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, reg_delta=None):
         else:
             chromfunc = BF.fwhm_func_tauscher
         mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, lats=lats, times=times, return_mat=True, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
-        mat_A_mod, (mat_G_mod, mat_P_mod, mat_Y_mod, mat_B_mod) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmod, lats=lats, times=times, return_mat=True, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+        mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmod, lats=lats, times=times, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
     elif chrom is None:
         mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
         mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
         mat_G = BlockMatrix(mat=mat_G, mode='block', nblock=len(nuarr))
         mat_P = BlockMatrix(mat=mat_P, mode='block', nblock=len(nuarr))
         mat_B = BlockMatrix(mat=mat_B, mode='block', nblock=len(nuarr))
-        mat_A_mod, (mat_G_mod, mat_P_mod, mat_Y_mod, mat_B_mod) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
+        mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam)
         mat_A_mod = BlockMatrix(mat=mat_A_mod, mode='block', nblock=len(nuarr))
             
     # Perform fiducial observations
