@@ -72,9 +72,22 @@ def get_polychord_loglikelihood(y, yerr, model):
         return log_likelihood(theta, y=y, yerr=yerr, model=model), []
     return likelihood
 
-def prior(hypercube):
-    """ Uniform prior from [-1,1]^D. """
-    return UniformPrior(-1, 1)(hypercube)
+def get_polychord_prior(prior_pars):
+    """
+    The polychord prior, simply takes values in the unit hypercube and maps them
+    to points in the prior range of our model.
+
+    This prior handles an unnormalised uniform prior
+    within the rectangular bounds given by prior_pars.
+
+    inputs:
+    theta - N array of parameter values
+    prior_pars - [N,2] array of prior ranges
+    i.e. = [[lower1, upper1], ...]
+    """
+    def prior(hypercube):
+        return UniformPrior(prior_pars[:,0], prior_pars[:,1])(hypercube)
+    return prior
 
 #| Optional dumper function giving run-time read access to
 #| the live points, dead points, weights and evidences

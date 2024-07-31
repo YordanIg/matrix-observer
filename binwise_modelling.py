@@ -10,12 +10,14 @@ from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
 from emcee import EnsembleSampler
 from chainconsumer import ChainConsumer
+import pypolychord
 
 import src.beam_functions as BF
 import src.spherical_harmonics as SH
 import src.forward_model as FM
 import src.sky_models as SM
 import nregions_inference as NRI
+import src.inference as INF
 from src.blockmat import BlockMatrix, BlockVector
 
 RS = SH.RealSphericalHarmonics()
@@ -468,11 +470,14 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
         nwalkers, fg_dim = 64, Npoly+3
         ndim = fg_dim
         pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
-
+        priors = [[1, 25], [-3.5, -1.5]]
+        priors += [[-2, 2]]*(Npoly-2)
+        priors += [[-0.5, -0.01], [60, 90], [1, 8]]
+        priors = np.array(priors)
         # run emcee without priors
         err = np.sqrt(noise_covar.diag)
-        sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
-                            args=(dnoisy.vector, err, mod))
+        sampler = EnsembleSampler(nwalkers, ndim, NRI.log_posterior, 
+                            args=(dnoisy.vector, err, mod, priors))
         _=sampler.run_mcmc(pos, nsteps=3000, progress=True)
         chain_mcmc = sampler.get_chain(flat=True, discard=1000)
         theta_inferred = np.mean(chain_mcmc, axis=0)
@@ -588,6 +593,7 @@ def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     # Perform fiducial observations
     d = mat_A @ fid_alm
     dnoisy, noise_covar = SM.add_noise_uniform(d, 0.01)
+    err = np.sqrt(noise_covar.diag)
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
@@ -622,21 +628,33 @@ def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
 
 
     # Set up polychord.
+    priors = [[1, 25], [-3.5, -1.5]]
+    priors += [[-2, 2]]*(Npoly-2)
+    priors += [[-0.5, -0.01], [60, 90], [1, 8]]
+    priors = np.array(priors)
     nDims = Npoly+3
-    nlive = 200
+    polych_prior = INF.get_polychord_prior(prior_pars=priors)
+    polych_likel = INF.get_polychord_loglikelihood(y=dnoisy.vector, yerr=err, model=mod)
+    paramnames = [(f'p{i}', f'\\theta_{i}') for i in range(nDims)]
+    output = pypolychord.run(
+        polych_likel,
+        nDims,
+        nDerived=0,
+        prior=polych_prior,
+        dumper=INF.dumper,
+        file_root='test',
+        nlive=200,
+        do_clustering=True,
+        read_resume=False,
+        paramnames=paramnames,
+    )
 
-    # run emcee without priors
-    err = np.sqrt(noise_covar.diag)
-    sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
-                        args=(dnoisy.vector, err, mod))
-    _=sampler.run_mcmc(pos, nsteps=3000, progress=True)
-    chain_mcmc = sampler.get_chain(flat=True, discard=1000)
-    theta_inferred = np.mean(chain_mcmc, axis=0)
-    c = ChainConsumer()
-    c.add_chain(chain_mcmc)
-    f = c.plotter.plot()
+    from anesthetic import make_2d_axes
+    fig, ax = make_2d_axes(['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'])
+    output.plot_2d(ax)
+    fig.savefig("AAAAAAplot.pdf")
     plt.show()
-
+    '''
     print("par est:", res[0])
     print("std devs:", np.sqrt(np.diag(res[1])))
     print("chi-sq")
@@ -710,4 +728,8 @@ def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     plt.xlabel("Frequency [MHz]")
     plt.ylabel("Inferred 21-cm a00 residuals [K]")
     plt.legend()
-    plt.show()
+    plt.show()'''
+
+if __name__ == "__main__":
+    from mpi4py import MPI
+    fg_cm21_chrom_corr_polych(Npoly=6, chrom=8e-3)
