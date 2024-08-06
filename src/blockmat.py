@@ -88,7 +88,9 @@ class BlockMatrix:
             These defaults correspond to my convenient use cases.
         """
         # If other is an ndarray, attempt to interpret it as a Block object.
-        if isinstance(other, np.ndarray) and np.shape(other)[0] == self.mat_shape[1]:
+        if isinstance(other, np.ndarray):
+            if np.shape(other)[0] != self.mat_shape[1]:
+                raise ValueError("incompatible matrix shapes.")
             if len(np.shape(other)) == 1:
                 other = BlockVector(vec=other, mode='as-is', nblock=self.nblock)
             elif len(np.shape(other)) == 2:
@@ -119,7 +121,9 @@ class BlockMatrix:
         Return a Blockmatrix representation of the sum of self and other.
         """
         # If other is an ndarray, attempt to interpret it as a Block object.
-        if isinstance(other, np.ndarray) and np.shape(other)[0] == self.mat_shape[1]:
+        if isinstance(other, np.ndarray):
+            if np.shape(other)[0] != self.mat_shape[1]:
+                raise ValueError("incompatible matrix shapes.")
             if len(np.shape(other)) == 1:
                 other = BlockVector(vec=other, mode='as-is', nblock=self.nblock)
             elif len(np.shape(other)) == 2:
