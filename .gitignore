@@ -10,3 +10,4 @@ matplotlib*
 egsm/
 PolyChordLite/
 chains/*
+*.npy
