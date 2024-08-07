@@ -461,7 +461,7 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
     '''
     #load the gsma indexes
     if nside is None:
-        nside=16
+        nside=32
     try:
         T_408, indexes = np.load(ROOT+f'/anstey/indexes_{nside}.npy')
         if const_idx:
