@@ -293,7 +293,7 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
         _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=5):
+def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=0.05, err_type='idx'):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -304,7 +304,6 @@ def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=5):
     lmod    = 3
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
-    delta = SM.basemap_err_to_delta(percent_err=basemap_err)
     lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
@@ -322,10 +321,8 @@ def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=5):
             chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
         else:
             chromfunc = BF.fwhm_func_tauscher
-        print("here")
         mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
         mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmod, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
-        print("there")
     elif chrom is None:
         mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
         mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
@@ -343,7 +340,10 @@ def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=5):
     #         of unmodelled modes.
     fg_alm_list = []
     for i in range(4):
-        fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=delta, seed=123+i))
+        if err_type=='idx':
+            fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=123+i))
+        else:
+            fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=basemap_err, err_type=err_type, seed=123+i))
     fg_alm_arr = np.array(fg_alm_list)
     fg_alm_arr = np.array(np.split(fg_alm_arr, len(nuarr), axis=1))
     fg_alm_unmod_arr  = fg_alm_arr[:,:,Nlmod:]
