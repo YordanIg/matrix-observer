@@ -17,7 +17,7 @@ else:
     from pygdsm import GlobalSkyModel2016
     ROOT = '/Users/yordani/Documents/boosted_compass/matrix-observer'
 from numba import jit
-from anstey.generate import T_CMB
+from anstey.generate import T_CMB, gen_err_gsma
 
 import src.spherical_harmonics as SH
 from src.blockmat import BlockMatrix, BlockVector
@@ -429,7 +429,7 @@ def basemap_err_to_delta(percent_err):
     """
     return np.log(percent_err*1e-2 + 1) / np.log(408/230)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, seed=None):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, err_type='idx', seed=None):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -447,6 +447,9 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
     healpix maps. The resulting nside will match the nside argument,
     or will be equal to 16, the native resolution of the GSMA lo.
 
+    If original_map is True, will also return the GSMA map before it's been 
+    converted to alm (ignored if map=True).
+
     If use_mat_Y is True, calculates/uses the spherical harmonic matrix Y.
 
     If const_index is true, will scale the Haslam map back with a constant power
@@ -454,10 +457,15 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
 
     GENERATING DIFFERENT FOREGROUND INSTANCES:
 
-    If delta is not None, will add this width of Gaussian random error to each
-    of the indexes of the sky.
+    If delta is not None, will generate a map with errors induced in it. How it 
+    does this depends on err_type:
+        'inx' - delta is width of gaussian random error added to the standard 
+                 GSMA indexes.
+        'bm1' - Adds delta fractional error to the T_230 GSMA basemap but not 
+                 the T_408 basemap.
+        'bm2' - Adds delta fractional error to both basemaps.
 
-    Seed is the random seed to do this.
+    Seed is the random seed to do the above.
     '''
     #load the gsma indexes
     if nside is None:
@@ -473,7 +481,18 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
         if seed is None:
             seed=123
         np.random.seed(seed)
-        indexes = np.random.normal(loc=indexes, scale=delta)
+        
+        if err_type=='idx':
+            indexes = np.random.normal(loc=indexes, scale=delta)
+        elif err_type=='bm1':
+            T_408, indexes = gen_err_gsma(nside_out=nside, delta=delta, 
+                                          one_basemap=True, seed=seed)
+        elif err_type=='bm2':
+            T_408, indexes = gen_err_gsma(nside_out=nside, delta=delta, 
+                                          one_basemap=False, seed=seed)
+        else:
+            raise ValueError("Invalid err_type passed.")
+
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 map=map, original_map=original_map, use_mat_Y=use_mat_Y)
 
