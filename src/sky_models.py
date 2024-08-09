@@ -429,7 +429,7 @@ def basemap_err_to_delta(percent_err):
     """
     return np.log(percent_err*1e-2 + 1) / np.log(408/230)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, err_type='idx', seed=None):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, err_type='idx', seed=123):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -464,6 +464,8 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
         'bm1' - Adds delta fractional error to the T_230 GSMA basemap but not 
                  the T_408 basemap.
         'bm2' - Adds delta fractional error to both basemaps.
+        'bm'  - Only used if const_idx=True. This just adds percentage errors to
+                the T_408 basemap.
 
     Seed is the random seed to do the above.
     '''
@@ -474,6 +476,9 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
         T_408, indexes = np.load(ROOT+f'/anstey/indexes_{nside}.npy')
         if const_idx:
             indexes = -2.5*np.ones_like(indexes)
+            if delta is not None and err_type=='bm':
+                np.random.seed(seed)
+                T_408 = np.random.normal(loc=T_408, scale=T_408*delta)
     except:
         raise Exception(f"Indexes for the Anstey sky nside={nside} have not been "\
                         +"generated.")
@@ -490,6 +495,8 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
         elif err_type=='bm2':
             T_408, indexes = gen_err_gsma(nside_out=nside, delta=delta, 
                                           one_basemap=False, seed=seed)
+        elif err_type=='bm':  # Dealt with above.
+            pass
         else:
             raise ValueError("Invalid err_type passed.")
 
