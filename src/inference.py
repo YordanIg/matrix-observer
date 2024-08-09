@@ -2,7 +2,7 @@
 Define likelihoods, priors, etc.
 """
 import numpy as np
-from pypolychord.priors import UniformPrior
+#from pypolychord.priors import UniformPrior
 
 ################################################################################
 # Emcee
@@ -72,7 +72,7 @@ def get_polychord_loglikelihood(y, yerr, model):
         return log_likelihood(theta, y=y, yerr=yerr, model=model), []
     return likelihood
 
-def get_polychord_prior(prior_pars):
+'''def get_polychord_prior(prior_pars):
     """
     The polychord prior, simply takes values in the unit hypercube and maps them
     to points in the prior range of our model.
@@ -87,7 +87,7 @@ def get_polychord_prior(prior_pars):
     """
     def prior(hypercube):
         return UniformPrior(prior_pars[:,0], prior_pars[:,1])(hypercube)
-    return prior
+    return prior'''
 
 #| Optional dumper function giving run-time read access to
 #| the live points, dead points, weights and evidences
