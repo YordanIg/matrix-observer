@@ -10,7 +10,7 @@ from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
 from emcee import EnsembleSampler
 from chainconsumer import ChainConsumer
-import pypolychord
+#import pypolychord
 
 import src.beam_functions as BF
 import src.spherical_harmonics as SH
@@ -402,49 +402,58 @@ def fg_cm21_chrom(Npoly=3, mcmc=False, chrom=None):
     plt.show()
 
 
-def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
+def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, lats=None, mcmc_pos=None):
     """
     NOTE: will NOT work if Ntau != 1.
     """
     # Model and observation params
+    err_type = 'bm2'
     nside   = 32
     lmax    = 32
     Nlmax   = RS.get_size(lmax)
-    lats = [-26]#np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 24, 3, endpoint=False)
+    if lats is None:
+        lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#[-26]#
+    times = np.linspace(0, 24, 12, endpoint=False)
     Ntau  = 1
     nuarr = np.linspace(50,100,51)
-    cm21_params     = [-0.2, 80.0, 5.0]
-    delta = SM.basemap_err_to_delta(percent_err=basemap_err)
+    cm21_params = [-0.2, 80.0, 5.0]
 
     # Generate foreground and 21-cm alm
-    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=delta)
+    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
     fid_alm  = fg_alm + cm21_alm
-    
-    # Generate observation matrix for the modelling and for the observations.
-    if chrom is None:
-        chromfunc = BF.fwhm_func_tauscher
-    else:
-        chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
-    mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau, lats, times, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+
+    # Generate observation matrix for the observations.
+    if chrom is not None:
+        if not isinstance(chrom, bool):
+            chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
+        else:
+            chromfunc = BF.fwhm_func_tauscher
+        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=Ntau, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+    elif chrom is None:
+        narrow_cosbeam = lambda x: BF.beam_cos(x, 0.8)
+        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
+        mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
 
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise_uniform(d, 0.01)
+    dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], Ntau, t_int=100)#SM.add_noise_uniform(d, 0.01)
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
-    # Perform an EDGES-style chromaticity correction.
-    # Generate alm of the Haslam-shifted sky and observe them using our beam.
-    has_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, const_idx=True)
-    chrom_corr_numerator = mat_A @ has_alm
-    # Construct an observation matrix of the hypothetical (non-chromatic) case.
-    mat_A_ref = BlockMatrix(mat=mat_A.block[10], nblock=mat_A.nblock)
-    chrom_corr_denom = mat_A_ref @ has_alm
+    dnoisy_vector = dnoisy.vector
+    if chrom is not None:
+        # Perform an EDGES-style chromaticity correction.
+        # Generate alm of the Haslam-shifted sky and observe them using our beam.
+        has_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, const_idx=True, delta=basemap_err, err_type='bm', seed=123)
+        chrom_corr_numerator = mat_A @ has_alm
+        # Construct an observation matrix of the hypothetical (non-chromatic) case.
+        mat_A_ref = BlockMatrix(mat=mat_A.block[10], nblock=mat_A.nblock)
+        chrom_corr_denom = mat_A_ref @ has_alm
+        chrom_corr = chrom_corr_numerator.vector/chrom_corr_denom.vector
+        dnoisy_vector /= chrom_corr
     
-    chrom_corr = chrom_corr_numerator.vector/chrom_corr_denom.vector
-    dnoisy = BlockVector(vec=dnoisy.vector/chrom_corr, nblock=dnoisy.nblock)
+    dnoisy = BlockVector(vec=dnoisy_vector, nblock=dnoisy.nblock)
     
     # Set up the foreground model
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
@@ -456,6 +465,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     p0 = [10, -2.5]
     p0 += [0.01]*(Npoly-2)
     p0 += cm21_params
+    
     res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
 
     # Compute chi-square.
@@ -464,21 +474,23 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     chi_sq = np.sum(residuals**2/noise_covar.diag)
     print(f"Reduced chi square = {chi_sq/(len(dnoisy.vector)-(Npoly+3))}")
 
-    
     if mcmc:
         # create a small ball around the MLE to initialize each walker
         nwalkers, fg_dim = 64, Npoly+3
         ndim = fg_dim
-        pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+        if mcmc_pos is not None:
+            pos = mcmc_pos*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+        else:
+            pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
         priors = [[1, 25], [-3.5, -1.5]]
-        priors += [[-2, 2]]*(Npoly-2)
+        priors += [[-2, 2.1]]*(Npoly-2)
         priors += [[-0.5, -0.01], [60, 90], [1, 8]]
         priors = np.array(priors)
         # run emcee without priors
         err = np.sqrt(noise_covar.diag)
         sampler = EnsembleSampler(nwalkers, ndim, NRI.log_posterior, 
                             args=(dnoisy.vector, err, mod, priors))
-        _=sampler.run_mcmc(pos, nsteps=3000, progress=True)
+        _=sampler.run_mcmc(pos, nsteps=3000, progress=True, skip_initial_state_check=True)
         chain_mcmc = sampler.get_chain(flat=True, discard=1000)
         theta_inferred = np.mean(chain_mcmc, axis=0)
         c = ChainConsumer()
@@ -504,10 +516,25 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     f = c.plotter.plot()
     plt.show()
 
+    if savetag is not None:
+        prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>_"
+        if chrom is None:
+            prestr += "achrom_"
+        else:
+            prestr += "chrom<{:.1e}>_".format(chrom)
+        if basemap_err is not None:
+            prestr += err_type+"<{basemap_err}>_"
+    
+        np.save("saves/Binwise/"+prestr+savetag+"mlChain.npy", chain)
+        if mcmc:
+            np.save("saves/Binwise/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
+
     # Evaluate the model at 100 points drawn from the chain to get 1sigma 
     # inference bounds in data space.
     cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
-    chain_samples = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100)
+    #chain_samples = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100)
+    chain_samples = chain_mcmc[np.random.choice(a=list(range(len(chain_mcmc))), size=100)]
+    chain_mcmc = chain_mcmc[:,-3:]
     cm21_a00_sample_list = [cm21_a00_mod(nuarr, theta) for theta in chain_samples]
     cm21_a00_sample_mean = np.mean(cm21_a00_sample_list, axis=0)
     cm21_a00_sample_std = np.std(cm21_a00_sample_list, axis=0)
@@ -561,7 +588,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     plt.legend()
     plt.show()
 
-
+'''
 def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     """
     NOTE: will NOT work if Ntau != 1.
@@ -655,6 +682,7 @@ def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     fig.savefig("AAAAAAplot.pdf")
     plt.show()
     '''
+'''
     print("par est:", res[0])
     print("std devs:", np.sqrt(np.diag(res[1])))
     print("chi-sq")
@@ -728,8 +756,10 @@ def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
     plt.xlabel("Frequency [MHz]")
     plt.ylabel("Inferred 21-cm a00 residuals [K]")
     plt.legend()
-    plt.show()'''
-
+    plt.show()
+    '''
+'''
 if __name__ == "__main__":
     from mpi4py import MPI
     fg_cm21_chrom_corr_polych(Npoly=6, chrom=8e-3)
+'''
