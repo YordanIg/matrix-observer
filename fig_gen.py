@@ -8,15 +8,82 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import numpy as np
 from chainconsumer import ChainConsumer
+import healpy as hp
 
 import src.observing as OBS
 import src.sky_models as SM
 import src.beam_functions as BF
 import src.forward_model as FM
+from src.blockmat import BlockMatrix
 from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
 
 from binwise_modelling import fg_cm21_chrom_corr
+
+def gen_lmod_investigation():
+    def calc_d_vec(lmod=32, nside=64):
+        npix    = hp.nside2npix(nside)
+        lats = np.array([-26])
+        times = np.linspace(0, 24, 3, endpoint=False)
+        nuarr   = np.linspace(50,100,51)
+        narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
+        
+        # Generate foreground alm
+        fg_alm_mod = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmod, nside=nside, use_mat_Y=True)
+        
+        # Generate observation matrix for the modelling and for the observations.
+        mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam)
+        mat_A_mod = BlockMatrix(mat=mat_A_mod, mode='block', nblock=len(nuarr))
+
+        # Calculate RMS errors of the data vectors.
+        dmod = mat_A_mod@fg_alm_mod
+        return dmod.vector
+    pars = [2, 4, 8, 16, 32, 64]
+    d_list = []
+    for par in pars:
+        d_list.append(calc_d_vec(par))
+    np.save('INLR_d_list.npy', d_list)
+
+def plot_lmod_nside_investigation():
+    """
+    Plot the RMS residuals to observing the sky from the LWA site in 3 time bins
+    across a single day, compared across multiple LMOD values.
+    This list is generated using NSIDE 64, with LMOD=[2, 4, 8, 16, 32, 64].
+    The x axis ranges from LMOD=2->32, where e.g. the LMOD=2 point signifies the
+    residuals between the LMOD=4 and LMOD=2 observations.
+
+    Includes a second plot showing that the value of NSIDE=32 is enough to
+    capture the behaviour of up to LMOD=64 modes, let alone LMOD=32 modes.
+    """
+    d_list = np.load('INLR_d_list.npy')
+    pars = [2, 4, 8, 16, 32, 64]
+    # Plot std error between each l value and the next l value, i.e. the first is RMS(l=2 - l=4).
+    xx = list(range(len(d_list)-1))
+    yy = [np.std(d_list[i]-d_list[i+1]) for i in range(len(d_list)-1)]
+
+    fig, ax = plt.subplots(1, 2, figsize=(6, 3))
+    ax[0].loglog(pars[:-1],yy, '.')
+    ax[0].set_xticks(ticks=[], labels=[], minor=True)
+    ax[0].set_xticks(ticks=pars[:-1], labels=pars[:-1], minor=False)
+    ax[0].set_ylabel("RMS residual temperature [K]")
+    ax[0].set_xlabel(r"$l_\mathrm{mod}$")
+
+    NSIDEs = [2, 4, 8, 16, 32, 64, 128]
+    ELLs   = [32, 64]
+    rads_NSIDE = [np.sqrt(4*np.pi / (12*NSIDE**2)) for NSIDE in NSIDEs]
+    rads_ELL = [2*np.pi/(2*ELL) for ELL in ELLs]
+    ax[1].loglog(NSIDEs, rads_NSIDE, '.')
+    sty = [':', '-.']
+    for ELL, rads, s in zip(ELLs, rads_ELL, sty):
+        ax[1].axhline(y=rads, linestyle=s, label="l="+str(ELL), color='k')
+    ax[1].legend()
+    ax[1].set_xticks(ticks=[], labels=[], minor=True)
+    ax[1].set_xticks(ticks=NSIDEs, labels=NSIDEs, minor=False)
+    ax[1].set_xlabel("NSIDE")
+    ax[1].set_ylabel("Approx pixel width [rad]")
+    fig.tight_layout()
+    plt.savefig("fig/lmod_nside_investigation.png")
+    plt.savefig("fig/lmod_nside_investigation.pdf")
 
 
 def plot_basemap_err(save=False):
@@ -322,16 +389,18 @@ def plot_binwise_achrom():
     plt.show()
 
 def gen_binwise_chrom():
-    # Four-antenna case:
+    '''# Four-antenna case:
     fg_cm21_chrom_corr(Npoly=9, mcmc=True, chrom=1.6e-2, savetag="", lats=np.array([-26*2, -26, 26, 26*2]))
     # Single-antenna case:
-    fg_cm21_chrom_corr(Npoly=9, mcmc=True, chrom=1.6e-2, savetag="", lats=np.array([-26]))
+    fg_cm21_chrom_corr(Npoly=9, mcmc=True, chrom=1.6e-2, savetag="", lats=np.array([-26]))'''
 
     # Investigate which chromaticities have any chance of working using ML method. Combine this with basemap errors (and look at Npoly)
+    startpos = np.append(np.mean(np.load('saves/Binwise/Nant<4>_Npoly<9>_chrom<3.4e-02>_mcmcChain.npy'), axis=0)[:-4], OBS.cm21_params)
+    fg_cm21_chrom_corr(Npoly=8, mcmc=True, chrom=3.4e-2, savetag="", lats=np.array([-26*2, -26, 26, 26*2]), mcmc_pos=startpos)
 
 def plot_binwise_chrom():
-    nant4_mcmcChain = np.load('saves/Binwise/Nant<4>_chrom<3.4e-02>_mcmcChain.npy')
-    nant4_mlChain = np.load('saves/Binwise/Nant<4>_chrom<3.4e-02>_mlChain.npy')
+    nant4_mcmcChain = np.load('saves/Binwise/Nant<4>_Npoly<8>_chrom<3.4e-02>_mcmcChain.npy')
+    nant4_mlChain = np.load('saves/Binwise/Nant<4>_Npoly<8>_chrom<3.4e-02>_mlChain.npy')
 
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
