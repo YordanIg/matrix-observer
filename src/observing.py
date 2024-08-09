@@ -14,6 +14,9 @@ RS = RealSphericalHarmonics()
 Nfreq = 51
 nuarr = np.linspace(50,100,Nfreq)
 
+# Fiducial 21-cm parameters
+cm21_params = [-0.2, 80.0, 5.0]
+
 # Default parameters of the observation and fiducial sky.
 default_pars = {
     "times"  : np.linspace(0,6,3, endpoint=False),
