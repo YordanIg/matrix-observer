@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
+from emcee import EnsembleSampler
 
 import src.beam_functions as BF
 import src.spherical_harmonics as SH
@@ -16,6 +17,7 @@ import src.sky_models as SM
 import src.map_making as MM
 import src.plotting as PL
 from src.blockmat import BlockMatrix, BlockVector
+import src.inference as INF
 from anstey.generate import T_CMB
 
 RS = SH.RealSphericalHarmonics()
@@ -293,7 +295,7 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
         _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=0.05, err_type='idx'):
+def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, err_type='idx', mcmc=False, mcmc_pos=None, savetag=""):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -339,9 +341,9 @@ def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=0.05, err_type='
     # Step 1: Generate instances of the GSMA and find the mean and covariance
     #         of unmodelled modes.
     fg_alm_list = []
-    for i in range(4):
+    for i in range(40):
         if err_type=='idx':
-            fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=123+i))
+            fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=123+i, meancorr=True))
         else:
             fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=basemap_err, err_type=err_type, seed=123+i))
     fg_alm_arr = np.array(fg_alm_list)
@@ -360,7 +362,7 @@ def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=0.05, err_type='
         data_corr.append(mat_A_unmod_block @ alm_block_mean)
         covar_corr.append(mat_A_unmod_block @ alm_block_cov @ mat_A_unmod_block.T)
     data_corr = BlockVector(np.array(data_corr))
-    covar_corr = BlockMatrix(np.array(covar_corr))    
+    covar_corr = BlockMatrix(np.array(covar_corr))
 
     # Reconstruct the max likelihood estimate of the alm
     mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True)
@@ -378,13 +380,53 @@ def nontrivial_obs_memopt_missing_modes(chrom=None, basemap_err=0.05, err_type='
     a00_error = np.array(alm_error[::Nlmod])
 
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
-    Npoly = 9
     fg_mon_p0 = [15, 2.5]
     fg_mon_p0 += [.001]*(Npoly-2)
     cm21_mon_p0 = [-0.2, 80, 5]
     res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
 
     _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
+
+    if mcmc:
+        def mod(theta):
+            return fg_cm21_polymod(nuarr, *theta)
+        
+        # create a small ball around the MLE to initialize each walker
+        nwalkers, fg_dim = 64, Npoly+3
+        ndim = fg_dim
+        if mcmc_pos is not None:
+            pos = mcmc_pos*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+        else:
+            pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+        priors = [[1, 25], [1.5, 3.5]]
+        priors += [[-2, 2.1]]*(Npoly-2)
+        priors += [[-0.5, -0.01], [60, 90], [1, 8]]
+        priors = np.array(priors)
+        # run emcee without priors
+        err = np.sqrt(noise_covar.diag)
+        sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior, 
+                            args=(rec_a00, a00_error, mod, priors))
+        _=sampler.run_mcmc(pos, nsteps=3000, progress=True, skip_initial_state_check=True)
+        chain_mcmc = sampler.get_chain(flat=True, discard=1000)
+        theta_inferred = np.mean(chain_mcmc, axis=0)
+
+        prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>_"
+        if chrom is None:
+            prestr += "achrom_"
+        else:
+            prestr += "chrom<{:.1e}>_".format(chrom)
+        if basemap_err is not None:
+            prestr += err_type+"<{}>_".format(basemap_err)
+    
+        np.save("saves/MLmod/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
+        
+        c = ChainConsumer()
+        c.add_chain(chain_mcmc)
+        f = c.plotter.plot()
+        plt.show()
+
+    
+
     del mat_A
     del mat_A_mod
     del mat_A_unmod
