@@ -461,13 +461,16 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         theta = np.array(theta)
         return mod(theta)
 
-    # Try curve_fit:
+    # Try curve_fit, if it doesn't work just set res to the guess parameters.
     p0 = [10, -2.5]
     p0 += [0.01]*(Npoly-2)
     p0 += cm21_params
     
-    res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
-
+    try:
+        res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
+    except RuntimeError:
+        res = [np.array(p0), np.diag([1]*len(p0))]
+    
     # Compute chi-square.
     residuals = dnoisy.vector - mod(res[0])
     chi_sq = residuals @ noise_covar.matrix @ residuals
