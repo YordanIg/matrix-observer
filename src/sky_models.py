@@ -368,7 +368,7 @@ def foreground_gdsm_galcut_alm(nu, lmax=40, nside=None, map=False):
     return map_real_alm.flatten()
 
 
-def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, original_map=False, use_mat_Y=False):
+def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, original_map=False, use_mat_Y=False, meancorr=False, delta=None):
     #are we dealing with multiple frequencies or not
     try:
         len(nu)
@@ -378,6 +378,11 @@ def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, ori
 
     #generate the map
     gsma_map = [(T_408 - T_CMB)*(freq/408)**(-indexes) + T_CMB for freq in nu]
+
+    #perform a mean-correction
+    if delta is not None and meancorr:
+        print('correcting for mean')
+        gsma_map = [m * (2 - np.exp((delta*np.log(freq/408))**2/2)) for m, freq in zip(gsma_map, nu)]
 
     #convert to (real) alm, dealing with both multi and single freq cases
     if use_mat_Y:
@@ -429,7 +434,7 @@ def basemap_err_to_delta(percent_err):
     """
     return np.log(percent_err*1e-2 + 1) / np.log(408/230)
 
-def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, err_type='idx', seed=123):
+def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, err_type='idx', seed=123, meancorr=False):
     '''
     An extrapolation of the GDSM sky back to the 21-cm frequency range as used
     in Anstey et. al. 2021 (arXiv:2010.09644). This version uses the same
@@ -501,7 +506,7 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
             raise ValueError("Invalid err_type passed.")
 
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
-                                map=map, original_map=original_map, use_mat_Y=use_mat_Y)
+                                map=map, original_map=original_map, use_mat_Y=use_mat_Y, meancorr=meancorr, delta=delta)
 
 def foreground_gsma_nsidelo(nu, nside=None):
     """
