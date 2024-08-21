@@ -382,7 +382,7 @@ def _gsma_indexes_to_alm(nu, T_408, indexes, lmax=40, nside=None, map=False, ori
     #perform a mean-correction
     if delta is not None and meancorr:
         print('correcting for mean')
-        gsma_map = [m * (2 - np.exp((delta*np.log(freq/408))**2/2)) for m, freq in zip(gsma_map, nu)]
+        gsma_map = [(m-T_CMB)*np.exp(-(delta*np.log(freq/408))**2/2) + T_CMB for m, freq in zip(gsma_map, nu)]
 
     #convert to (real) alm, dealing with both multi and single freq cases
     if use_mat_Y:
