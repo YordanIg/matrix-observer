@@ -341,7 +341,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
     # Step 1: Generate instances of the GSMA and find the mean and covariance
     #         of unmodelled modes.
     fg_alm_list = []
-    for i in range(40):
+    for i in range(10):
         if err_type=='idx':
             fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=123+i, meancorr=True))
         else:
@@ -365,7 +365,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
     covar_corr = BlockMatrix(np.array(covar_corr))
 
     # Reconstruct the max likelihood estimate of the alm
-    mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True)
+    mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True, cond=True)
     alm_error = np.sqrt(cov.diag)
     rec_alm = mat_W @ (dnoisy - data_corr)
     # Compute the chi-square and compare it to the length of the data vector.
