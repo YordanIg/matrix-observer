@@ -405,9 +405,11 @@ def fg_cm21_chrom(Npoly=3, mcmc=False, chrom=None):
 def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, lats=None, mcmc_pos=None):
     """
     NOTE: will NOT work if Ntau != 1.
+
+    basemap_err : fractional (not percentage) error on the T408 basemap, i.e.
+                  of type 'bm'.
     """
     # Model and observation params
-    err_type = 'bm2'
     nside   = 32
     lmax    = 32
     Nlmax   = RS.get_size(lmax)
@@ -519,6 +521,17 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     f = c.plotter.plot()
     plt.show()
 
+    # Calculate the BIC for MCMC.
+    bic = None
+    if mcmc:
+        c = ChainConsumer()
+        c.add_chain(chain_mcmc, statistics='max')
+        analysis_dict = c.analysis.get_summary(squeeze=True)
+        theta_max = np.array([val[1] for val in analysis_dict.values()])
+        loglike = NRI.log_likelihood(theta_max, y=dnoisy.vector, yerr=err, model=mod)
+        bic = len(theta_max)*np.log(len(dnoisy)) - 2*loglike
+        print("bic is ", bic)
+
     if savetag is not None:
         prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>_"
         if chrom is None:
@@ -526,70 +539,14 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         else:
             prestr += "chrom<{:.1e}>_".format(chrom)
         if basemap_err is not None:
-            prestr += err_type+"<{basemap_err}>_"
+            prestr += 'bm'+"<{basemap_err}>_"
     
         np.save("saves/Binwise/"+prestr+savetag+"mlChain.npy", chain)
         if mcmc:
             np.save("saves/Binwise/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
-
-    # Evaluate the model at 100 points drawn from the chain to get 1sigma 
-    # inference bounds in data space.
-    cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
-    #chain_samples = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100)
-    chain_samples = chain_mcmc[np.random.choice(a=list(range(len(chain_mcmc))), size=100)]
-    chain_mcmc = chain_mcmc[:,-3:]
-    cm21_a00_sample_list = [cm21_a00_mod(nuarr, theta) for theta in chain_samples]
-    cm21_a00_sample_mean = np.mean(cm21_a00_sample_list, axis=0)
-    cm21_a00_sample_std = np.std(cm21_a00_sample_list, axis=0)
-
-    # Plot the model evaluated 1 sigma regions and the fiducial monopole.
-    cm21_a00 = np.array(cm21_alm[::Nlmax])
-    plt.plot(nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
-    plt.fill_between(
-        nuarr,
-        cm21_a00_sample_mean-cm21_a00_sample_std, 
-        cm21_a00_sample_mean+cm21_a00_sample_std,
-        color='C1',
-        alpha=0.8,
-        edgecolor='none',
-        label="inferred"
-    )
-    plt.fill_between(
-        nuarr,
-        cm21_a00_sample_mean-2*cm21_a00_sample_std, 
-        cm21_a00_sample_mean+2*cm21_a00_sample_std,
-        color='C1',
-        alpha=0.4,
-        edgecolor='none'
-    )
-    plt.xlabel("Frequency [MHz]")
-    plt.ylabel("21-cm a00 [K]")
-    plt.legend()
-    plt.show()
-
-    # Do the same thing but take the residuals.
-    plt.plot(nuarr, cm21_a00-cm21_a00, label='fiducial', linestyle=':', color='k')
-    plt.fill_between(
-        nuarr,
-        cm21_a00_sample_mean-cm21_a00_sample_std-cm21_a00, 
-        cm21_a00_sample_mean+cm21_a00_sample_std-cm21_a00,
-        color='C1',
-        alpha=0.8,
-        edgecolor='none',
-        label="inferred"
-    )
-    plt.fill_between(
-        nuarr,
-        cm21_a00_sample_mean-2*cm21_a00_sample_std-cm21_a00, 
-        cm21_a00_sample_mean+2*cm21_a00_sample_std-cm21_a00,
-        color='C1',
-        alpha=0.4,
-        edgecolor='none'
-    )
-    plt.xlabel("Frequency [MHz]")
-    plt.ylabel("Inferred 21-cm a00 residuals [K]")
-    plt.legend()
-    plt.show()
+        if bic is not None:
+            print("saving bic")
+            np.save("saves/Binwise/"+prestr+savetag+"bic.npy", bic)
 
 '''
 def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
