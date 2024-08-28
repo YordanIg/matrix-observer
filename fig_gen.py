@@ -399,8 +399,14 @@ def gen_binwise_chrom():
     fg_cm21_chrom_corr(Npoly=8, mcmc=True, chrom=6e-2, savetag="", lats=np.array([-26*2, -26, 26, 26*2]), mcmc_pos=startpos, basemap_err=0.05)
 
 def plot_binwise_chrom():
-    nant4_mcmcChain = np.load('saves/Binwise/Nant<4>_Npoly<6>_chrom<6.0e-02>_bm2<0.05>_mcmcChain.npy')
-    nant4_mlChain = np.load('saves/Binwise/Nant<4>_Npoly<6>_chrom<6.0e-02>_bm2<0.05>_mlChain.npy')
+    runstr = "Nant<4>_Npoly<9>_chrom<3.4e-02>"
+    nant4_mcmcChain = np.load('saves/Binwise/'+runstr+'_mcmcChain.npy')
+    nant4_mlChain = np.load('saves/Binwise/'+runstr+'_mlChain.npy')
+    try:
+        bic=np.load('saves/Binwise/'+runstr+'_bic.npy')
+        print("MCMC BIC =", bic)
+    except:
+        pass
 
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
@@ -474,8 +480,14 @@ def plot_binwise_chrom():
 
 
 def plot_ml_chrom():
-    nant4_mcmcChain = np.load('saves/MLmod/Nant<4>_Npoly<6>_chrom<6.0e-02>_bm2<0.05>_mcmcChain.npy')
+    runstr = 'Nant<4>_Npoly<6>_chrom<6.0e-02>_bm2<0.05>'
+    nant4_mcmcChain = np.load('saves/MLmod/'+runstr+'_mcmcChain.npy')
     #nant4_mlChain = np.load('saves/MLmod/Nant<4>_Npoly<5>_chrom<3.4e-02>_mlChain.npy')
+    try:
+        bic=np.load('saves/MLmod/'+runstr+'_bic.npy')
+        print("MCMC BIC =", bic)
+    except:
+        pass
 
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
