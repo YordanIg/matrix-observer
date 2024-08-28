@@ -420,6 +420,16 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
     
         np.save("saves/MLmod/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
         
+        # Calculate the BIC for MCMC.    
+        c = ChainConsumer()
+        c.add_chain(chain_mcmc, statistics='max')
+        analysis_dict = c.analysis.get_summary(squeeze=True)
+        theta_max = np.array([val[1] for val in analysis_dict.values()])
+        loglike = INF.log_likelihood(theta_max, y=rec_a00, yerr=a00_error, model=mod)
+        bic = len(theta_max)*np.log(len(rec_a00)) - 2*loglike
+        print("bic is ", bic)
+        np.save("saves/MLmod/"+prestr+savetag+"bic.npy", bic)
+
         c = ChainConsumer()
         c.add_chain(chain_mcmc)
         f = c.plotter.plot()
