@@ -359,7 +359,6 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
 
     # Generate foreground and 21-cm signal alm
     fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=100, meancorr=False)
-    #fg_alm = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, basemap_err)).flatten()
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
     fid_alm  = fg_alm + cm21_alm
 
