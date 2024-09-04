@@ -295,7 +295,52 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
         _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, err_type='idx', mcmc=False, mcmc_pos=None, savetag=""):
+def gsma_corr(lmod, lmax, nside, nuarr, bmerr):
+    """
+    Compute and return the GSMA error instance alm mean correction and covariance
+    matrix, truncated as requested. Will first check to see if the relevant 
+    correction has not already been generated, in which case it will be loaded
+    instead.
+    """
+    Nlmod = RS.get_size(lmod)
+    while True:
+        try:
+            alm_cov  = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_cov.npy".format(nside, lmax, bmerr))
+            alm_cov  = alm_cov[:,Nlmod:,Nlmod:]
+            alm_mean = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, bmerr))
+            alm_mean = alm_mean[:,Nlmod:]
+            alm_mean = alm_mean.flatten()
+            s = "Loaded mean and covar correction for nside<{}>_lmax<{}>_bmerr<{}>"
+            print(s.format(nside, lmax, bmerr))
+            return alm_mean, BlockMatrix(mat=alm_cov)
+        except:
+            s = "Failed loading mean and covar correction for nside<{}>_lmax<{}>_bmerr<{}>, generating instead."
+            print(s.format(nside, lmax, bmerr))
+        
+            gsma_maps = SM.foreground_gsma_nsidelo(nu=nuarr, nside=nside)
+            delta = SM.basemap_err_to_delta(percent_err=bmerr)
+
+            temp_cov_blocks = []
+            temp_mean_blocks = []
+
+            for nu, gsma_map in zip(nuarr, gsma_maps):
+                sigma_T   = delta * np.log(408/nu)
+
+                exponents = np.exp(2*sigma_T**2) - np.exp(sigma_T**2)
+                temp_cov_block_diag = exponents*(gsma_map - T_CMB)**2
+                temp_cov_blocks.append(np.diag(temp_cov_block_diag))
+                temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
+                temp_mean_blocks.append(temp_mean_block)
+
+            inv_Y = np.linalg.pinv(SH.calc_spherical_harmonic_matrix(nside=nside, lmax=lmax))
+            alm_mean = [inv_Y @ temp_mean_block for temp_mean_block in temp_mean_blocks]
+            alm_cov  = [inv_Y @ temp_cov_block @ inv_Y.T for temp_cov_block in temp_cov_blocks]
+            np.save("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_cov.npy".format(nside, lmax, bmerr), np.array(alm_cov))
+            np.save("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, bmerr), np.array(alm_mean))
+
+
+
+def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -306,7 +351,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
     lmod    = 3
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
-    lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
+    lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
     cm21_params     = (-0.2, 80.0, 5.0)
@@ -314,6 +359,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
 
     # Generate foreground and 21-cm signal alm
     fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=100, meancorr=False)
+    #fg_alm = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, basemap_err)).flatten()
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
     fid_alm  = fg_alm + cm21_alm
 
@@ -337,35 +383,42 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
-    # Generate a missing-modes correction.
-    # Step 1: Generate instances of the GSMA and find the mean and covariance
-    #         of unmodelled modes.
-    fg_alm_list = []
-    for i in range(10):
-        if err_type=='idx':
-            fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=123+i, meancorr=False))
-        else:
-            fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=basemap_err, err_type=err_type, seed=123+i))
-    fg_alm_arr = np.array(fg_alm_list)
-    fg_alm_arr = np.array(np.split(fg_alm_arr, len(nuarr), axis=1))
-    fg_alm_unmod_arr  = fg_alm_arr[:,:,Nlmod:]
-
-    # Step 2: Calculate the missing-modes observation matrix.
+    # Calculate the missing-modes observation matrix.
     mat_A_unmod = BlockMatrix(mat_A.block[:,:,Nlmod:])
 
-    # Step 3: Compute the data correction and covariance correction.
-    data_corr  = []
-    covar_corr = []
-    for alm_block, mat_A_unmod_block in zip(fg_alm_unmod_arr, mat_A_unmod.block):
-        alm_block_mean = np.mean(alm_block, axis=0)
-        alm_block_cov  = np.cov(alm_block, rowvar=False)
-        data_corr.append(mat_A_unmod_block @ alm_block_mean)
-        covar_corr.append(mat_A_unmod_block @ alm_block_cov @ mat_A_unmod_block.T)
-    data_corr = BlockVector(np.array(data_corr))
-    covar_corr = BlockMatrix(np.array(covar_corr))
+    # Generate a missing-modes correction numerically by generating instances of 
+    # the GSMA and finding the mean and covariance.
+    if numerical_corr:
+        fg_alm_list = []
+        for i in range(100):
+            if err_type=='idx':
+                fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type=err_type, seed=123+i, meancorr=False))
+            else:
+                fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=basemap_err, err_type=err_type, seed=123+i))
+        fg_alm_arr = np.array(fg_alm_list)
+        fg_alm_arr = np.array(np.split(fg_alm_arr, len(nuarr), axis=1))
+        fg_alm_unmod_arr  = fg_alm_arr[:,:,Nlmod:]
+        # Step 3: Compute the data correction and covariance correction.
+        data_corr  = []
+        covar_corr = []
+        for alm_block, mat_A_unmod_block in zip(fg_alm_unmod_arr, mat_A_unmod.block):
+            alm_block_mean = np.mean(alm_block, axis=0)
+            alm_block_cov  = np.cov(alm_block, rowvar=False)
+            data_corr.append(mat_A_unmod_block @ alm_block_mean)
+            covar_corr.append(mat_A_unmod_block @ alm_block_cov @ mat_A_unmod_block.T)
+        data_corr = BlockVector(np.array(data_corr))
+        covar_corr = BlockMatrix(np.array(covar_corr))
+    
+    # Generate a missing-modes correction analytically.
+    elif not numerical_corr:
+        alm_mean, alm_cov = gsma_corr(lmod, lmax, nside, nuarr, basemap_err)
+        data_corr = mat_A_unmod @ alm_mean
+        covar_corr = mat_A_unmod @ alm_cov @ mat_A_unmod.T
+
 
     # Reconstruct the max likelihood estimate of the alm
     mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True, cond=True)
+
     alm_error = np.sqrt(cov.diag)
     rec_alm = mat_W @ (dnoisy - data_corr)
     # Compute the chi-square and compare it to the length of the data vector.
@@ -403,12 +456,10 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
         priors += [[-0.5, -0.01], [60, 90], [1, 8]]
         priors = np.array(priors)
         # run emcee without priors
-        err = np.sqrt(noise_covar.diag)
         sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior, 
                             args=(rec_a00, a00_error, mod, priors))
-        _=sampler.run_mcmc(pos, nsteps=3000, progress=True, skip_initial_state_check=True)
-        chain_mcmc = sampler.get_chain(flat=True, discard=1000)
-        theta_inferred = np.mean(chain_mcmc, axis=0)
+        _=sampler.run_mcmc(pos, nsteps=10000, progress=True, skip_initial_state_check=True)
+        chain_mcmc = sampler.get_chain(flat=True, discard=3000)
 
         prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>_"
         if chrom is None:
