@@ -402,7 +402,7 @@ def fg_cm21_chrom(Npoly=3, mcmc=False, chrom=None):
     plt.show()
 
 
-def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, lats=None, mcmc_pos=None):
+def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, lats=None, mcmc_pos=None, steps=3000, burn_in=1000):
     """
     NOTE: will NOT work if Ntau != 1.
 
@@ -421,7 +421,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     cm21_params = [-0.2, 80.0, 5.0]
 
     # Generate foreground and 21-cm alm
-    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
+    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type='idx')
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
     fid_alm  = fg_alm + cm21_alm
 
@@ -439,7 +439,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
 
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], Ntau, t_int=100)#SM.add_noise_uniform(d, 0.01)
+    dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], Ntau, t_int=1000)#SM.add_noise_uniform(d, 0.01)
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
@@ -447,7 +447,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     if chrom is not None:
         # Perform an EDGES-style chromaticity correction.
         # Generate alm of the Haslam-shifted sky and observe them using our beam.
-        has_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, const_idx=True, delta=basemap_err, err_type='bm', seed=123)
+        has_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, const_idx=True, delta=basemap_err, err_type='bm', seed=124)
         chrom_corr_numerator = mat_A @ has_alm
         # Construct an observation matrix of the hypothetical (non-chromatic) case.
         mat_A_ref = BlockMatrix(mat=mat_A.block[10], nblock=mat_A.nblock)
@@ -472,6 +472,9 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
     except RuntimeError:
         res = [np.array(p0), np.diag([1]*len(p0))]
+    print("par est:", res[0])
+    print("std devs:", np.sqrt(np.diag(res[1])))
+    print("chi-sq")
     
     # Compute chi-square.
     residuals = dnoisy.vector - mod(res[0])
@@ -484,42 +487,52 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         nwalkers, fg_dim = 64, Npoly+3
         ndim = fg_dim
         if mcmc_pos is not None:
-            pos = mcmc_pos*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+            if len(mcmc_pos) < ndim:
+                print("error - mcmc start pos has too few params. Adding some.")
+                params_to_add = [0.01]*(ndim-len(mcmc_pos))
+                mcmc_pos = np.append(mcmc_pos[:-3], params_to_add)
+                mcmc_pos = np.append(mcmc_pos, cm21_params)
+            elif len(mcmc_pos) > ndim:
+                print("error - mcmc start pos has too many params. Cutting some.")
+                new_pos = mcmc_pos[:Npoly]
+                new_pos = np.append(new_pos, cm21_params)
+                mcmc_pos = np.array(new_pos)
+            p0 = mcmc_pos
         else:
-            pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+            p0 = res[0]
         priors = [[1, 25], [-3.5, -1.5]]
-        priors += [[-2, 2.1]]*(Npoly-2)
+        priors += [[-10, 10.1]]*(Npoly-2)
         priors += [[-0.5, -0.01], [60, 90], [1, 8]]
         priors = np.array(priors)
-        # run emcee without priors
+        print("MCMC PRIORS:", priors)
+        
+        p0 = INF.prior_checker(priors, p0)
+        pos = p0*(1 + 1e-4*np.random.randn(nwalkers, ndim))
         err = np.sqrt(noise_covar.diag)
         sampler = EnsembleSampler(nwalkers, ndim, NRI.log_posterior, 
                             args=(dnoisy.vector, err, mod, priors))
-        _=sampler.run_mcmc(pos, nsteps=3000, progress=True, skip_initial_state_check=True)
-        chain_mcmc = sampler.get_chain(flat=True, discard=1000)
+        _=sampler.run_mcmc(pos, nsteps=steps, progress=True, skip_initial_state_check=True)
+        chain_mcmc = sampler.get_chain(flat=True, discard=burn_in)
         theta_inferred = np.mean(chain_mcmc, axis=0)
-        c = ChainConsumer()
+        '''c = ChainConsumer()
         c.add_chain(chain_mcmc)
         f = c.plotter.plot()
-        plt.show()
+        plt.show()'''
 
-    print("par est:", res[0])
-    print("std devs:", np.sqrt(np.diag(res[1])))
-    print("chi-sq")
-    plt.plot(dnoisy.vector-mod(res[0]), '.')
+    '''plt.plot(dnoisy.vector-mod(res[0]), '.')
     plt.xlabel("bin")
     plt.ylabel("data - model [K]")
-    plt.show()
+    plt.show()'''
 
     # Provide a corner plot for the 21-cm inference.
     # Draw samples from the likelihood.
     chain = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100000)
-    c = ChainConsumer()
+    '''c = ChainConsumer()
     c.add_chain(chain, parameters=['A', 'nu0', 'dnu'])
     if mcmc:
         c.add_chain(chain_mcmc[:,-3:])
     f = c.plotter.plot()
-    plt.show()
+    plt.show()'''
 
     # Calculate the BIC for MCMC.
     bic = None
@@ -539,9 +552,11 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         else:
             prestr += "chrom<{:.1e}>_".format(chrom)
         if basemap_err is not None:
-            prestr += 'bm'+"<{basemap_err}>_"
+            prestr += 'bm'+f"<{basemap_err}>_"
     
         np.save("saves/Binwise/"+prestr+savetag+"mlChain.npy", chain)
+        np.save("saves/Binwise/"+prestr+savetag+"data.npy", dnoisy.vector)
+        np.save("saves/Binwise/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag))
         if mcmc:
             np.save("saves/Binwise/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
         if bic is not None:
