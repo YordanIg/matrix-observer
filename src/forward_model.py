@@ -590,6 +590,15 @@ def genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat, fid_alm, Npo
 ################################################################################
 # Binwise foreground modelling.
 ################################################################################
+def generate_dummy_mat_A(nuarr, Ntau, lmod):
+    """
+    Generates a dummy blockmatrix A full of zeros to pass to the functions below
+    if you don't need to actually compute mat_A.
+    """
+    Nlmod = RS.get_size(lmax=lmod)
+    mat_A_blocks = np.zeros((len(nuarr), Ntau, Nlmod))
+    return BlockMatrix(mat=mat_A_blocks)
+
 def generate_binwise_forward_model(nuarr, observation_mat: BlockMatrix, Npoly=2):
     # Determine the number of bins and number of frequencies, and make sure they
     # are all consistent.
