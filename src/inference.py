@@ -63,6 +63,23 @@ def log_posterior(theta, y, yerr, model, prior_pars):
         lp += log_likelihood(theta, y, yerr, model)
     return lp
 
+def prior_checker(priors, p0):
+    """
+    Check that each value of the vector p0 lies within the prior bounds of
+    priors. If not, replace that value of the vector p0 with the mean of the
+    prior bound passed.
+    NOTE: You must not pass any prior bounds that average to zero.
+    """
+    lower =  p0 > priors[:,0]
+    upper = p0 < priors[:,1]
+    in_prior_pars = lower & upper
+    for i in range(len(p0)):
+        if not in_prior_pars[i]:
+            print(f"ERROR: {i}th parameter of p0 not in prior volume. Setting to mean of prior.")
+            p0[i] = np.mean(priors[i])
+    return p0
+
+
 ################################################################################
 # Polychord
 ################################################################################
