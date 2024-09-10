@@ -21,6 +21,16 @@ RS = RealSphericalHarmonics()
 from binwise_modelling import fg_cm21_chrom_corr
 from multifrequency_ml_modelling import nontrivial_obs_memopt_missing_modes
 
+ant_LUT = {
+    1 : np.array([-26]),
+    2 : np.array([-26, 26]),
+    3 : np.array([-26, 0, 26]),
+    4 : np.array([-26*2, -26, 26, 26*2]),
+    5 : np.array([-26*2, -26, 0, 26, 26*2]),
+    6 : np.array([-26*3, -26*2, -26, 26, 26*2, 26*3]),
+    7 : np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
+}
+
 def gen_lmod_investigation():
     def calc_d_vec(lmod=32, nside=64):
         npix    = hp.nside2npix(nside)
@@ -317,8 +327,8 @@ def gen_binwise_achrom(Npoly=4):
 
 def plot_binwise_achrom(Nant=4, Npoly=6):
     runstr = 'Nant<{}>_Npoly<{}>_achrom'.format(Nant, Npoly)
-    nant4_mcmcChain = np.load('saves/Binwise/'+runstr+'_mcmcChain.npy')
-    nant4_mlChain = np.load('saves/Binwise/'+runstr+'_mlChain.npy')
+    mcmcChain = np.load('saves/Binwise/'+runstr+'_mcmcChain.npy')
+    mlChain = np.load('saves/Binwise/'+runstr+'_mlChain.npy')
     try:
         bic=np.load('saves/Binwise/'+runstr+'_bic.npy')
         print("MCMC BIC =", bic)
@@ -327,8 +337,8 @@ def plot_binwise_achrom(Nant=4, Npoly=6):
 
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
-    c.add_chain(nant4_mlChain, parameters=['A', 'nu0', 'dnu'])
-    c.add_chain(nant4_mcmcChain[:,-3:])
+    c.add_chain(mlChain, parameters=['A', 'nu0', 'dnu'])
+    c.add_chain(mcmcChain[:,-3:])
     f = c.plotter.plot()
     plt.show()
 
@@ -336,8 +346,8 @@ def plot_binwise_achrom(Nant=4, Npoly=6):
     cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
     cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
 
-    idx_mcmcChain = np.random.choice(a=list(range(len(nant4_mcmcChain))), size=1000)
-    samples_mcmcChain = nant4_mcmcChain[idx_mcmcChain]
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChain))), size=1000)
+    samples_mcmcChain = mcmcChain[idx_mcmcChain]
     samples_mcmcChain = samples_mcmcChain[:,-3:]
     a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
     a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
@@ -366,8 +376,8 @@ def plot_binwise_achrom(Nant=4, Npoly=6):
     plt.legend()
     plt.show()
     
-    idx_mlChain = np.random.choice(a=list(range(len(nant4_mlChain))), size=1000)
-    samples_mlChain = nant4_mlChain[idx_mlChain]
+    idx_mlChain = np.random.choice(a=list(range(len(mlChain))), size=1000)
+    samples_mlChain = mlChain[idx_mlChain]
     a00list_ml   = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mlChain]
     a00mean_ml = np.mean(a00list_ml, axis=0)
     a00std_ml  = np.std(a00list_ml, axis=0)
@@ -400,8 +410,8 @@ def plot_binwise_achrom(Nant=4, Npoly=6):
 
 def plot_ml_achrom(Nant=4, Npoly=6, bmerr_idx='0.0851'):
     runstr = 'Nant<{}>_Npoly<{}>_achrom_idx<{}>'.format(Nant, Npoly, bmerr_idx)
-    nant4_mcmcChain = np.load('saves/MLmod/'+runstr+'_mcmcChain.npy')
-    #nant4_mlChain = np.load('saves/MLmod/Nant<4>_Npoly<5>_chrom<3.4e-02>_mlChain.npy')
+    mcmcChain = np.load('saves/MLmod/'+runstr+'_mcmcChain.npy')
+    #mlChain = np.load('saves/MLmod/Nant<4>_Npoly<5>_chrom<3.4e-02>_mlChain.npy')
     try:
         bic=np.load('saves/MLmod/'+runstr+'_bic.npy')
         print("MCMC BIC =", bic)
@@ -410,8 +420,8 @@ def plot_ml_achrom(Nant=4, Npoly=6, bmerr_idx='0.0851'):
 
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
-    #c.add_chain(nant4_mlChain, parameters=['A', 'nu0', 'dnu'])
-    c.add_chain(nant4_mcmcChain[:,-3:])
+    #c.add_chain(mlChain, parameters=['A', 'nu0', 'dnu'])
+    c.add_chain(mcmcChain[:,-3:])
     f = c.plotter.plot()
     plt.show()
 
@@ -419,8 +429,8 @@ def plot_ml_achrom(Nant=4, Npoly=6, bmerr_idx='0.0851'):
     cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
     cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
 
-    idx_mcmcChain = np.random.choice(a=list(range(len(nant4_mcmcChain))), size=1000)
-    samples_mcmcChain = nant4_mcmcChain[idx_mcmcChain]
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChain))), size=1000)
+    samples_mcmcChain = mcmcChain[idx_mcmcChain]
     samples_mcmcChain = samples_mcmcChain[:,-3:]
     a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
     a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
@@ -452,22 +462,62 @@ def plot_ml_achrom(Nant=4, Npoly=6, bmerr_idx='0.0851'):
     chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc)
     print("monopole chi-sq", chi_sq)
 
+def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None):
+    #startpos = np.append(np.mean(np.load('saves/Binwise/Nant<4>_Npoly<8>_chrom<3.4e-02>_mcmcChain.npy'), axis=0)[:8], OBS.cm21_params)
+    chain = np.load('saves/Binwise/Nant<4>_Npoly<10>_chrom<3.4e-02>_mcmcChain.npy')
+    c = ChainConsumer().add_chain(chain)
+    pars = [elt[1] for elt in c.analysis.get_summary().values()]
+    pars = pars[:10]
+    startpos = None#np.array(pars)
+    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag="", lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=3000, burn_in=1000)
 
-def gen_binwise_chrom():
-    '''# Four-antenna case:
-    fg_cm21_chrom_corr(Npoly=9, mcmc=True, chrom=1.6e-2, savetag="", lats=np.array([-26*2, -26, 26, 26*2]))
-    # Single-antenna case:
-    fg_cm21_chrom_corr(Npoly=9, mcmc=True, chrom=1.6e-2, savetag="", lats=np.array([-26]))'''
+def run_set_gen_binwise_chrom0_bm0():
+    gen_binwise_chrom(Nant=4, Npoly=2, chrom=None, basemap_err=None)
 
-    # Investigate which chromaticities have any chance of working using ML method. Combine this with basemap errors (and look at Npoly)
-    Npoly=6
-    startpos = np.append(np.mean(np.load('saves/Binwise/Nant<4>_Npoly<8>_chrom<3.4e-02>_mcmcChain.npy'), axis=0)[:Npoly], OBS.cm21_params)
-    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=6.0e-02, savetag="", lats=np.array([-26*2, -26, 26, 26*2]), mcmc_pos=startpos)
+def plot_set_binwise_chrom0_bm0():
+    plot_binwise_chrom(Nant=4, Npoly=2, chromstr=None, basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=3, chromstr=None, basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=4, chromstr=None, basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=5, chromstr=None, basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=6, chromstr=None, basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=8, chromstr=None, basemap_err=None)
 
-def plot_binwise_chrom(Nant=4, Npoly=7):
-    runstr = "Nant<{}>_Npoly<{}>_chrom<6.0e-02>".format(Nant, Npoly)
-    nant4_mcmcChain = np.load('saves/Binwise/'+runstr+'_mcmcChain.npy')
-    nant4_mlChain = np.load('saves/Binwise/'+runstr+'_mlChain.npy')
+def run_set_gen_binwise_chromsmall_bm0(*Npolys):
+    for Npoly in Npolys:
+        gen_binwise_chrom(Nant=4, Npoly=Npoly, chrom=1.6e-2, basemap_err=None)
+
+def plot_set_binwise_chromsmall_bm0(*Npolys):
+    for Npoly in Npolys:
+        plot_binwise_chrom(Nant=4, Npoly=Npoly, chromstr='1.6e-02', basemap_err=None)
+
+def run_set_gen_binwise_chrom_bm0():
+    gen_binwise_chrom(Nant=4, Npoly=10, chrom=3.4e-2, basemap_err=None)
+    #gen_binwise_chrom(Nant=4, Npoly=11, chrom=3.4e-2, basemap_err=None)
+    #gen_binwise_chrom(Nant=4, Npoly=12, chrom=3.4e-2, basemap_err=None)
+
+def plot_set_binwise_chrom_bm0():
+    plot_binwise_chrom(Nant=4, Npoly=6, chromstr='3.4e-02', basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=7, chromstr='3.4e-02', basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=8, chromstr='3.4e-02', basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=9, chromstr='3.4e-02', basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=10, chromstr='3.4e-02', basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=11, chromstr='3.4e-02', basemap_err=None)
+    plot_binwise_chrom(Nant=4, Npoly=12, chromstr='3.4e-02', basemap_err=None)
+
+def plot_binwise_chrom(Nant=4, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml_plots=False):
+    runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
+    if chromstr is not None:
+        runstr += f"_chrom<{chromstr}>"
+    else:
+        runstr += f"_achrom"
+    if basemap_err is not None:
+        runstr += f"_bm<{basemap_err}>"
+    mcmcChain = np.load('saves/Binwise/'+runstr+'_mcmcChain.npy')
+    mlChain   = np.load('saves/Binwise/'+runstr+'_mlChain.npy')
+    data      = np.load('saves/Binwise/'+runstr+'_data.npy')
+    dataerr   = np.load('saves/Binwise/'+runstr+'_dataerr.npy')
+
     try:
         bic=np.load('saves/Binwise/'+runstr+'_bic.npy')
         print("MCMC BIC =", bic)
@@ -476,24 +526,54 @@ def plot_binwise_chrom(Nant=4, Npoly=7):
 
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
-    c.add_chain(nant4_mlChain, parameters=['A', 'nu0', 'dnu'])
-    c.add_chain(nant4_mcmcChain[:,-3:])
+    c.add_chain(mlChain, parameters=['A', 'nu0', 'dnu'])
+    c.add_chain(mcmcChain[:,-3:])
     f = c.plotter.plot()
     plt.show()
 
     # Plot inferred signal.
     cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
     cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
+    if ml_plots:        
+        idx_mlChain = np.random.choice(a=list(range(len(mlChain))), size=10000)
+        samples_mlChain = mlChain[idx_mlChain]
+        a00list_ml   = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mlChain]
+        a00mean_ml = np.mean(a00list_ml, axis=0)
+        a00std_ml  = np.std(a00list_ml, axis=0)
 
-    idx_mcmcChain = np.random.choice(a=list(range(len(nant4_mcmcChain))), size=1000)
-    samples_mcmcChain = nant4_mcmcChain[idx_mcmcChain]
+        plt.plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+        plt.fill_between(
+            OBS.nuarr,
+            a00mean_ml-a00std_ml, 
+            a00mean_ml+a00std_ml,
+            color='C1',
+            alpha=0.8,
+            edgecolor='none',
+            label="inferred"
+        )
+        plt.fill_between(
+            OBS.nuarr,
+            a00mean_ml-2*a00std_ml, 
+            a00mean_ml+2*a00std_ml,
+            color='C1',
+            alpha=0.4,
+            edgecolor='none'
+        )
+        plt.xlabel("Frequency [MHz]")
+        plt.ylabel("21-cm a00 [K]")
+        plt.legend()
+        plt.show()
+
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChain))), size=1000)
+    samples_mcmcChain = mcmcChain[idx_mcmcChain]
     samples_mcmcChain = samples_mcmcChain[:,-3:]
     a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
     a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
     a00std_mcmc  = np.std(a00list_mcmc, axis=0)
 
-    plt.plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
-    plt.fill_between(
+    fig, ax = plt.subplots(2, 1, figsize=(4,4), sharex=True, gridspec_kw={'height_ratios':[3,1]})
+    ax[0].plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+    ax[0].fill_between(
         OBS.nuarr,
         a00mean_mcmc-a00std_mcmc, 
         a00mean_mcmc+a00std_mcmc,
@@ -502,7 +582,7 @@ def plot_binwise_chrom(Nant=4, Npoly=7):
         edgecolor='none',
         label="inferred"
     )
-    plt.fill_between(
+    ax[0].fill_between(
         OBS.nuarr,
         a00mean_mcmc-2*a00std_mcmc, 
         a00mean_mcmc+2*a00std_mcmc,
@@ -510,38 +590,16 @@ def plot_binwise_chrom(Nant=4, Npoly=7):
         alpha=0.4,
         edgecolor='none'
     )
-    plt.xlabel("Frequency [MHz]")
-    plt.ylabel("21-cm a00 [K]")
-    plt.legend()
-    plt.show()
-    
-    idx_mlChain = np.random.choice(a=list(range(len(nant4_mlChain))), size=1000)
-    samples_mlChain = nant4_mlChain[idx_mlChain]
-    a00list_ml   = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mlChain]
-    a00mean_ml = np.mean(a00list_ml, axis=0)
-    a00std_ml  = np.std(a00list_ml, axis=0)
+    ax[1].set_xlabel("Frequency [MHz]")
+    ax[0].set_ylabel("21-cm a00 [K]")
+    ax[0].legend()
 
-    plt.plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
-    plt.fill_between(
-        OBS.nuarr,
-        a00mean_ml-a00std_ml, 
-        a00mean_ml+a00std_ml,
-        color='C1',
-        alpha=0.8,
-        edgecolor='none',
-        label="inferred"
-    )
-    plt.fill_between(
-        OBS.nuarr,
-        a00mean_ml-2*a00std_ml, 
-        a00mean_ml+2*a00std_ml,
-        color='C1',
-        alpha=0.4,
-        edgecolor='none'
-    )
-    plt.xlabel("Frequency [MHz]")
-    plt.ylabel("21-cm a00 [K]")
-    plt.legend()
+    mat_A_dummy = FM.generate_dummy_mat_A(OBS.nuarr, Ntau=1, lmod=32)
+    mod = FM.generate_binwise_cm21_forward_model(nuarr=OBS.nuarr, observation_mat=mat_A_dummy, Npoly=Npoly)
+    ax[1].axhline(y=0, linestyle=':', color='k')
+    ax[1].errorbar(OBS.nuarr, mod(np.mean(mcmcChain, axis=0))-data, dataerr, fmt='.')
+    ax[1].set_ylabel(r"$T_\mathrm{res}$ [K]")
+    fig.tight_layout()
     plt.show()
 
     chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc)
@@ -553,8 +611,8 @@ def gen_ml_chrom(Npoly=6):
 
 def plot_ml_chrom(Nant=4, Npoly=6, chrom='6.0e-02', bmerr_idx='0.0851'):
     runstr = 'Nant<{}>_Npoly<{}>_chrom<{}>_idx<{}>'.format(Nant, Npoly, chrom, bmerr_idx)
-    nant4_mcmcChain = np.load('saves/MLmod/'+runstr+'_mcmcChain.npy')
-    #nant4_mlChain = np.load('saves/MLmod/Nant<4>_Npoly<5>_chrom<3.4e-02>_mlChain.npy')
+    mcmcChain = np.load('saves/MLmod/'+runstr+'_mcmcChain.npy')
+    #mlChain = np.load('saves/MLmod/Nant<4>_Npoly<5>_chrom<3.4e-02>_mlChain.npy')
     try:
         bic=np.load('saves/MLmod/'+runstr+'_bic.npy')
         print("MCMC BIC =", bic)
@@ -563,8 +621,8 @@ def plot_ml_chrom(Nant=4, Npoly=6, chrom='6.0e-02', bmerr_idx='0.0851'):
 
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
-    #c.add_chain(nant4_mlChain, parameters=['A', 'nu0', 'dnu'])
-    c.add_chain(nant4_mcmcChain[:,-3:])
+    #c.add_chain(mlChain, parameters=['A', 'nu0', 'dnu'])
+    c.add_chain(mcmcChain[:,-3:])
     f = c.plotter.plot()
     plt.show()
 
@@ -572,8 +630,8 @@ def plot_ml_chrom(Nant=4, Npoly=6, chrom='6.0e-02', bmerr_idx='0.0851'):
     cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
     cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
 
-    idx_mcmcChain = np.random.choice(a=list(range(len(nant4_mcmcChain))), size=1000)
-    samples_mcmcChain = nant4_mcmcChain[idx_mcmcChain]
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChain))), size=1000)
+    samples_mcmcChain = mcmcChain[idx_mcmcChain]
     samples_mcmcChain = samples_mcmcChain[:,-3:]
     a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
     a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
