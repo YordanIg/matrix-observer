@@ -25,7 +25,7 @@ from src.spherical_harmonics import RealSphericalHarmonics, calc_spherical_harmo
 
 RS = RealSphericalHarmonics()
 
-def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=123):
+def add_noise(temps, dnu=None, Ntau=None, t_int=None, dtB=None, seed=124):
     """
     Generate Gaussian radiometer noise for the passed temperature vector. Either 
     use dnu (frequency bin width in MHz), Ntau (number of time bins) and t_int 
@@ -432,6 +432,8 @@ def basemap_err_to_delta(percent_err):
     Roughly calculate the delta error in GSMA power law index required for a 
     given basemap error, taking the basemap error AS A PERCENTAGE.
     """
+    if percent_err is None:
+        return None
     return np.log(percent_err*1e-2 + 1) / np.log(408/230)
 
 def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, err_type='idx', seed=123, meancorr=False):
