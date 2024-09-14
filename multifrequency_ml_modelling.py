@@ -340,7 +340,7 @@ def gsma_corr(lmod, lmax, nside, nuarr, bmerr):
 
 
 
-def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False):
+def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -351,7 +351,8 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, chrom=None, basemap_err=0.05, e
     lmod    = 3
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
-    lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])#np.linspace(-80, 80, 100)#
+    if lats is None:
+        lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
     cm21_params     = (-0.2, 80.0, 5.0)
