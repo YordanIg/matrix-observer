@@ -452,7 +452,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
             pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
         priors = [[1, 25], [1.5, 3.5]]
         priors += [[-2, 2.1]]*(Npoly-2)
-        priors += [[-0.5, -0.01], [60, 90], [1, 8]]
+        priors += [[-0.5, -0.01], [70, 90], [1, 8]]
         priors = np.array(priors)
         # run emcee without priors
         sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior, 
