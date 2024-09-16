@@ -31,6 +31,9 @@ ant_LUT = {
     7 : np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
 }
 
+################################################################################
+# LMOD and NSIDE investigations.
+################################################################################
 def gen_lmod_investigation():
     def calc_d_vec(lmod=32, nside=64):
         npix    = hp.nside2npix(nside)
@@ -96,7 +99,9 @@ def plot_lmod_nside_investigation():
     plt.savefig("fig/lmod_nside_investigation.png")
     plt.savefig("fig/lmod_nside_investigation.pdf")
 
-
+################################################################################
+# Basemap error figure.
+################################################################################
 def plot_basemap_err(save=False):
     # Generate fiducial basemap and basemaps with 5% and 10% errors.
     fid_alm = SM.foreground_gsma_alm_nsidelo(OBS.nuarr, 32, 32, use_mat_Y=True, delta=None)
@@ -165,6 +170,9 @@ def plot_basemap_err(save=False):
         plt.show()
     plt.close("all")
 
+################################################################################
+# Alm polynomial forward model inference functions.
+################################################################################
 def _recompute_mat_A(pars, lmax):
     # Compute the observation matrix.
     narrow_cosbeam = lambda x: BF.beam_cos(x, 0.8)
@@ -319,6 +327,9 @@ def plot_alm_poly_inference():
     fig.tight_layout()
     fig.show()
 
+################################################################################
+# Achromatic binwise and ML functions (LEGACY?)
+################################################################################
 def gen_binwise_achrom(Npoly=4):
     # Four-antenna case:
     fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=None, savetag="", lats=np.array([-26*2, -26, 26, 26*2]))
@@ -462,6 +473,10 @@ def plot_ml_achrom(Nant=4, Npoly=6, bmerr_idx='0.0851'):
     chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc)
     print("monopole chi-sq", chi_sq)
 
+################################################################################
+# Chromatic and achromatic binwise modelling functions, with result plotting
+# and chi-squared and BIC trend plotting.
+################################################################################
 def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None):
     #startpos = np.append(np.mean(np.load('saves/Binwise/Nant<4>_Npoly<8>_chrom<3.4e-02>_mcmcChain.npy'), axis=0)[:8], OBS.cm21_params)
     chain = np.load('saves/Binwise/Nant<4>_Npoly<10>_chrom<3.4e-02>_mcmcChain.npy')
@@ -475,14 +490,9 @@ def run_set_gen_binwise_chrom0_bm0(*Npolys):
     for Npoly in Npolys:
         gen_binwise_chrom(Nant=4, Npoly=Npoly, chrom=None, basemap_err=None)
 
-def plot_set_binwise_chrom0_bm0():
-    plot_binwise_chrom(Nant=4, Npoly=2, chromstr=None, basemap_err=None)
-    plot_binwise_chrom(Nant=4, Npoly=3, chromstr=None, basemap_err=None)
-    plot_binwise_chrom(Nant=4, Npoly=4, chromstr=None, basemap_err=None)
-    plot_binwise_chrom(Nant=4, Npoly=5, chromstr=None, basemap_err=None)
-    plot_binwise_chrom(Nant=4, Npoly=6, chromstr=None, basemap_err=None)
-    plot_binwise_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None)
-    plot_binwise_chrom(Nant=4, Npoly=8, chromstr=None, basemap_err=None)
+def plot_set_binwise_chrom0_bm0(*Npolys):
+    for Npoly in Npolys:
+        plot_binwise_chrom(Nant=4, Npoly=Npoly, chromstr=None, basemap_err=None)
 
 def run_set_gen_binwise_chromsmall_bm0(*Npolys):
     for Npoly in Npolys:
@@ -647,20 +657,63 @@ def plot_binwise_chi_sq_bic(Nant=4, Npolys=[], chromstr='3.4e-02', basemap_err=N
     fig.tight_layout()
     plt.show()
 
-def gen_ml_chrom(Npoly=6):
+################################################################################
+# Chromatic and achromatic ML modelling functions, with result plotting
+# and chi-squared and BIC trend plotting.
+################################################################################
+def gen_ml_chrom(Nant=4, Npoly=6, chrom=None, basemap_err=None):
     startpos = np.append(np.mean(np.load('saves/MLmod/Nant<4>_Npoly<8>_chrom<6.0e-02>_idx<0.0851>_mcmcChain.npy'), axis=0)[:Npoly], OBS.cm21_params)
-    nontrivial_obs_memopt_missing_modes(chrom=3.4e-2, basemap_err=2, err_type='idx', Npoly=Npoly, mcmc=True, mcmc_pos=startpos)
+    nontrivial_obs_memopt_missing_modes(Npoly=Npoly, lats=ant_LUT[Nant], chrom=chrom, basemap_err=basemap_err, err_type='idx', mcmc=True, mcmc_pos=startpos)
 
-def plot_ml_chrom(Nant=4, Npoly=6, chrom='6.0e-02', bmerr_idx='0.0851'):
-    runstr = 'Nant<{}>_Npoly<{}>_chrom<{}>_idx<{}>'.format(Nant, Npoly, chrom, bmerr_idx)
+def run_set_gen_ml_chrom0_bm0(*Npolys):
+    for Npoly in Npolys:
+        gen_ml_chrom(Nant=4, Npoly=Npoly, chrom=None, basemap_err=0)
+
+def plot_set_ml_chrom0_bm0(*Npolys, savetag=None):
+    for Npoly in Npolys:
+        plot_ml_chrom(Nant=4, Npoly=Npoly, chromstr=None, basemap_err=0, savetag=savetag)
+
+def plot_ml_chi_sq_bic_chrom0_bm0(*Npolys, savetag=None):
+    plot_ml_chi_sq_bic(Nant=4, Npolys=Npolys, chromstr=None, basemap_err=0, savetag=savetag)
+
+def run_set_gen_ml_chrom0_bm5(*Npolys):
+    for Npoly in Npolys:
+        gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=None, basemap_err=5)
+
+def plot_set_ml_chrom0_bm5(*Npolys, savetag=None):
+    for Npoly in Npolys:
+        plot_ml_chrom(Nant=7, Npoly=Npoly, chromstr=None, basemap_err=5, savetag=savetag)
+
+def plot_ml_chi_sq_bic_chrom0_bm5(*Npolys, savetag=None):
+    plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr=None, basemap_err=5, savetag=savetag)
+
+def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None):
+    runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
+    if chromstr is not None:
+        runstr += f"_chrom<{chromstr}>"
+    else:
+        runstr += f"_achrom"
+    if basemap_err is not None:
+        runstr += f"_idx<{basemap_err}>"
     mcmcChain = np.load('saves/MLmod/'+runstr+'_mcmcChain.npy')
-    #mlChain = np.load('saves/MLmod/Nant<4>_Npoly<5>_chrom<3.4e-02>_mlChain.npy')
+    residuals = np.load('saves/MLmod/'+runstr+'_modres.npy')
+    data      = np.load('saves/MLmod/'+runstr+'_data.npy')
+    dataerr   = np.load('saves/MLmod/'+runstr+'_dataerr.npy')
+
     try:
         bic=np.load('saves/MLmod/'+runstr+'_bic.npy')
         print("MCMC BIC =", bic)
     except:
         pass
 
+    # Calculate number of timeseries data points per antenna to reshape the data
+    # arrays.
+    Nfreq = len(OBS.nuarr)
+    Ntau  = int(len(data) / (Nfreq*Nant))
+    data  = np.reshape(data, (Nfreq, Nant*Ntau))
+    dataerr   = np.reshape(dataerr, (Nfreq, Nant*Ntau))
+    residuals = np.reshape(residuals, (Nfreq, Nant*Ntau))
+    
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
     #c.add_chain(mlChain, parameters=['A', 'nu0', 'dnu'])
@@ -679,7 +732,7 @@ def plot_ml_chrom(Nant=4, Npoly=6, chrom='6.0e-02', bmerr_idx='0.0851'):
     a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
     a00std_mcmc  = np.std(a00list_mcmc, axis=0)
 
-    plt.plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+    '''plt.plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
     plt.fill_between(
         OBS.nuarr,
         a00mean_mcmc-a00std_mcmc, 
@@ -700,8 +753,80 @@ def plot_ml_chrom(Nant=4, Npoly=6, chrom='6.0e-02', bmerr_idx='0.0851'):
     plt.xlabel("Frequency [MHz]")
     plt.ylabel("21-cm a00 [K]")
     plt.legend()
+    plt.show()'''
+
+    fig, ax = plt.subplots(2, 1, figsize=(4,4), sharex=False, gridspec_kw={'height_ratios':[3,1]})
+    ax[0].plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+    ax[0].fill_between(
+        OBS.nuarr,
+        a00mean_mcmc-a00std_mcmc, 
+        a00mean_mcmc+a00std_mcmc,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    ax[0].fill_between(
+        OBS.nuarr,
+        a00mean_mcmc-2*a00std_mcmc, 
+        a00mean_mcmc+2*a00std_mcmc,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    ax[1].set_xlabel("Frequency [MHz]")
+    ax[0].set_ylabel("21-cm a00 [K]")
+    ax[0].legend()
+
+
+    ax[1].axhline(y=0, linestyle=':', color='k')
+    ax[1].errorbar(OBS.nuarr, np.mean(residuals, axis=1), np.std(residuals, axis=1), fmt='.')
+    ax[1].set_ylabel(r"$T_\mathrm{res}$ [K]")
+    fig.tight_layout()
+    if savetag is not None:
+        plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+".pdf")
+        plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+".png")
     plt.show()
     
     chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc)
     print("monopole chi-sq", chi_sq)
+    np.save('saves/MLmod/'+runstr+'_chi_sq.npy', chi_sq)
 
+def plot_ml_chi_sq_bic(Nant=4, Npolys=[], chromstr='3.4e-02', basemap_err=None, savetag=None):
+    runstrs = []
+    for Npoly in Npolys:
+        runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
+        if chromstr is not None:
+            runstr += f"_chrom<{chromstr}>"
+        else:
+            runstr += f"_achrom"
+        if basemap_err is not None:
+            runstr += f"_idx<{basemap_err}>"
+        runstrs.append(runstr)
+    chi_sqs = []
+    bics    = []
+    for runstr in runstrs:
+        chi_sqs.append(np.load(f'saves/MLmod/'+runstr+'_chi_sq.npy'))
+        bics.append(np.load(f'saves/MLmod/'+runstr+'_bic.npy'))
+
+    fig, ax1 = plt.subplots()
+    ax1.axhline(y=1, linestyle=':', color='k')
+    ax1.semilogy(Npolys,chi_sqs, color='C0')
+    ax1.set_ylabel(r"$\chi^2$")
+    ax1.set_xlabel("$N_\mathrm{poly}$")
+
+    ax2 = ax1.twinx()
+    ax2.semilogy(Npolys,bics, color='C1')
+    ax2.set_ylabel("BIC")
+    fig.tight_layout()
+    if savetag is not None:
+        s = f"ml_chi_sq_bic_Nant<{Nant}>"
+        if chromstr is not None:
+            s += f"_chrom<{chromstr}>"
+        else:
+            s += "_achrom"
+        if basemap_err is not None:
+            s += f"_idx<{basemap_err}>"
+        plt.savefig(f"fig/MLmod/"+s+savetag+".pdf")
+        plt.savefig(f"fig/MLmod/"+s+savetag+".png")
+    plt.show()
