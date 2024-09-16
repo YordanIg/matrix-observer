@@ -415,7 +415,6 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         data_corr = mat_A_unmod @ alm_mean
         covar_corr = mat_A_unmod @ alm_cov @ mat_A_unmod.T
 
-
     # Reconstruct the max likelihood estimate of the alm
     mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True, cond=True)
 
@@ -438,7 +437,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     cm21_mon_p0 = [-0.2, 80, 5]
     res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
 
-    _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
+    #_plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
 
     if mcmc:
         def mod(theta):
@@ -481,12 +480,10 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         print("bic is ", bic)
         np.save("saves/MLmod/"+prestr+savetag+"bic.npy", bic)
 
-        c = ChainConsumer()
-        c.add_chain(chain_mcmc)
-        f = c.plotter.plot()
-        plt.show()
-
-    
+        # Calculate the total model residuals and save them for plotting.
+        np.save("saves/MLmod/"+prestr+savetag+"modres.npy", ((dnoisy-data_corr) - mat_A_mod@rec_alm).vector)
+        np.save("saves/MLmod/"+prestr+savetag+"data.npy", dnoisy.vector)
+        np.save("saves/MLmod/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag))
 
     del mat_A
     del mat_A_mod
