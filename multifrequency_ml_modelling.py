@@ -340,7 +340,7 @@ def gsma_corr(lmod, lmax, nside, nuarr, bmerr):
 
 
 
-def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False):
+def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False, steps=10000, burn_in=3000):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -421,7 +421,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     alm_error = np.sqrt(cov.diag)
     rec_alm = mat_W @ (dnoisy - data_corr)
     # Compute the chi-square and compare it to the length of the data vector.
-    chi_sq = (dnoisy - mat_A_mod@rec_alm).T @ noise_covar.inv @ (dnoisy - mat_A_mod@rec_alm)
+    chi_sq = ((dnoisy - data_corr) - mat_A_mod@rec_alm).T @ noise_covar.inv @ ((dnoisy - data_corr) - mat_A_mod@rec_alm)
     chi_sq = sum(chi_sq.diag)
     print("Chi-square:", chi_sq, "len(data):", dnoisy.vec_len,"+/-", np.sqrt(2*dnoisy.vec_len), "Nparams:", Nlmod*len(nuarr))
     
@@ -457,8 +457,8 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         # run emcee without priors
         sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior, 
                             args=(rec_a00, a00_error, mod, priors))
-        _=sampler.run_mcmc(pos, nsteps=10000, progress=True, skip_initial_state_check=True)
-        chain_mcmc = sampler.get_chain(flat=True, discard=3000)
+        _=sampler.run_mcmc(pos, nsteps=steps, progress=True, skip_initial_state_check=True)
+        chain_mcmc = sampler.get_chain(flat=True, discard=burn_in)
 
         prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>_"
         if chrom is None:
@@ -483,7 +483,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         # Calculate the total model residuals and save them for plotting.
         np.save("saves/MLmod/"+prestr+savetag+"modres.npy", ((dnoisy-data_corr) - mat_A_mod@rec_alm).vector)
         np.save("saves/MLmod/"+prestr+savetag+"data.npy", dnoisy.vector)
-        np.save("saves/MLmod/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag))
+        np.save("saves/MLmod/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag+covar_corr.diag))
 
     del mat_A
     del mat_A_mod
