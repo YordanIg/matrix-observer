@@ -477,14 +477,14 @@ def plot_ml_achrom(Nant=4, Npoly=6, bmerr_idx='0.0851'):
 # Chromatic and achromatic binwise modelling functions, with result plotting
 # and chi-squared and BIC trend plotting.
 ################################################################################
-def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None):
+def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None, savetag=None):
     #startpos = np.append(np.mean(np.load('saves/Binwise/Nant<4>_Npoly<8>_chrom<3.4e-02>_mcmcChain.npy'), axis=0)[:8], OBS.cm21_params)
     chain = np.load('saves/Binwise/Nant<4>_Npoly<10>_chrom<3.4e-02>_mcmcChain.npy')
     c = ChainConsumer().add_chain(chain)
     pars = [elt[1] for elt in c.analysis.get_summary().values()]
     pars = pars[:10]
     startpos = None#np.array(pars)
-    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag="", lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=10000, burn_in=5000)
+    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, times=np.array([0]), lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=10000, burn_in=5000)
 
 def run_set_gen_binwise_chrom0_bm0(*Npolys):
     for Npoly in Npolys:
@@ -526,6 +526,17 @@ def plot_set_binwise_chrom_bm0(*Npolys, savetag=None):
 
 def plot_binwise_chi_sq_bic_chrom_bm0(savetag=None):
     plot_binwise_chi_sq_bic(Nant=4, Npolys=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], chromstr='3.4e-02', basemap_err=None, savetag=savetag)
+
+def run_set_gen_binwise_chrom_bm0_onepoint(*Npolys):
+    for Npoly in Npolys:
+        gen_binwise_chrom(Nant=4, Npoly=Npoly, chrom=3.4e-2, basemap_err=None, savetag='onepoint')
+
+def plot_set_binwise_chrom_bm0_onepoint(*Npolys):
+    for Npoly in Npolys:
+        plot_binwise_chrom(Nant=4, Npoly=Npoly, chromstr='3.4e-02', basemap_err=None, savetag='onepoint')
+
+def plot_binwise_chi_sq_bic_chrom_bm0_onepoint():
+    plot_binwise_chi_sq_bic(Nant=4, Npolys=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], chromstr='3.4e-02', basemap_err=None, savetag='onepoint')
 
 def plot_binwise_chrom(Nant=4, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml_plots=False, savetag=None):
     runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
@@ -676,9 +687,10 @@ def plot_binwise_chi_sq_bic(Nant=4, Npolys=[], chromstr='3.4e-02', basemap_err=N
 # and chi-squared and BIC trend plotting.
 ################################################################################
 def gen_ml_chrom(Nant=4, Npoly=6, chrom=None, basemap_err=None):
-    startpos = np.append(np.mean(np.load('saves/MLmod/Nant<4>_Npoly<8>_chrom<6.0e-02>_idx<0.0851>_mcmcChain.npy'), axis=0)[:Npoly], OBS.cm21_params)
-    nontrivial_obs_memopt_missing_modes(Npoly=Npoly, lats=ant_LUT[Nant], chrom=chrom, basemap_err=basemap_err, err_type='idx', mcmc=True, mcmc_pos=startpos)
+    startpos = None#np.append(np.mean(np.load('saves/MLmod/Nant<4>_Npoly<8>_chrom<6.0e-02>_idx<0.0851>_mcmcChain.npy'), axis=0)[:Npoly], OBS.cm21_params)
+    nontrivial_obs_memopt_missing_modes(Npoly=Npoly, lats=ant_LUT[Nant], chrom=chrom, basemap_err=basemap_err, err_type='idx', mcmc=True, mcmc_pos=startpos, steps=20000, burn_in=13000)
 
+# Achromatic, no basemap error.
 def run_set_gen_ml_chrom0_bm0(*Npolys):
     for Npoly in Npolys:
         gen_ml_chrom(Nant=4, Npoly=Npoly, chrom=None, basemap_err=0)
@@ -690,6 +702,7 @@ def plot_set_ml_chrom0_bm0(*Npolys, savetag=None):
 def plot_ml_chi_sq_bic_chrom0_bm0(*Npolys, savetag=None):
     plot_ml_chi_sq_bic(Nant=4, Npolys=Npolys, chromstr=None, basemap_err=0, savetag=savetag)
 
+# Achromatic, 5% basemap error.
 def run_set_gen_ml_chrom0_bm5(*Npolys):
     for Npoly in Npolys:
         gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=None, basemap_err=5)
@@ -701,6 +714,7 @@ def plot_set_ml_chrom0_bm5(*Npolys, savetag=None):
 def plot_ml_chi_sq_bic_chrom0_bm5(*Npolys, savetag=None):
     plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr=None, basemap_err=5, savetag=savetag)
 
+# 1.6e-2 chromaticity, 5% basemap error.
 def run_set_gen_ml_chromsmall_bm5(*Npolys):
     for Npoly in Npolys:
         gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=1.6e-2, basemap_err=5)
@@ -712,6 +726,7 @@ def plot_set_ml_chromsmall_bm5(*Npolys, savetag=None):
 def plot_ml_chi_sq_bic_chromsmall_bm5(*Npolys, savetag=None):
     plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='1.6e-02', basemap_err=5, savetag=savetag)
 
+# 3.4e-2 chromaticity, 5% basemap error.
 def run_set_gen_ml_chrom_bm5(*Npolys):
     for Npoly in Npolys:
         gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=3.4e-2, basemap_err=5)
@@ -722,6 +737,7 @@ def plot_set_ml_chrom_bm5(*Npolys, savetag=None):
 
 def plot_ml_chi_sq_bic_chrom_bm5(*Npolys, savetag=None):
     plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='3.4e-02', basemap_err=5, savetag=savetag)
+
 
 def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None):
     runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
@@ -746,9 +762,9 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     # arrays.
     Nfreq = len(OBS.nuarr)
     Ntau  = int(len(data) / (Nfreq*Nant))
-    data  = np.reshape(data, (Nfreq, Nant*Ntau))
-    dataerr   = np.reshape(dataerr, (Nfreq, Nant*Ntau))
-    residuals = np.reshape(residuals, (Nfreq, Nant*Ntau))
+    data  = np.reshape(data, (Nfreq, Nant, Ntau))
+    dataerr   = np.reshape(dataerr, (Nfreq, Nant, Ntau))
+    residuals = np.reshape(residuals, (Nfreq, Nant, Ntau))
     
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
@@ -816,7 +832,8 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
 
 
     ax[1].axhline(y=0, linestyle=':', color='k')
-    ax[1].errorbar(OBS.nuarr, np.mean(residuals, axis=1), np.std(residuals, axis=1), fmt='.')
+    ax[1].errorbar(OBS.nuarr, residuals[:,0,0], dataerr[:,0,0], fmt='.', color='k')
+    ax[1].axhline(0, linestyle=':', color='k')
     ax[1].set_ylabel(r"$T_\mathrm{res}$ [K]")
     fig.tight_layout()
     if savetag is not None:
