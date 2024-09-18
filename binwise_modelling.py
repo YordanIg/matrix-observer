@@ -402,7 +402,7 @@ def fg_cm21_chrom(Npoly=3, mcmc=False, chrom=None):
     plt.show()
 
 
-def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, lats=None, mcmc_pos=None, steps=3000, burn_in=1000):
+def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, times=None, lats=None, mcmc_pos=None, steps=3000, burn_in=1000):
     """
     NOTE: will NOT work if Ntau != 1.
 
@@ -415,7 +415,8 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     Nlmax   = RS.get_size(lmax)
     if lats is None:
         lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#[-26]#
-    times = np.linspace(0, 24, 12, endpoint=False)
+    if times is None:
+        times = np.linspace(0, 24, 12, endpoint=False)
     Ntau  = 1
     nuarr = np.linspace(50,100,51)
     cm21_params = [-0.2, 80.0, 5.0]
