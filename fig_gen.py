@@ -19,7 +19,7 @@ from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
 
 from binwise_modelling import fg_cm21_chrom_corr
-from multifrequency_ml_modelling import nontrivial_obs_memopt_missing_modes
+from multifrequency_ml_modelling import nontrivial_obs_memopt_missing_modes, fg_cm21_polymod
 
 ant_LUT = {
     1 : np.array([-26]),
@@ -484,7 +484,7 @@ def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None, savetag=Non
     pars = [elt[1] for elt in c.analysis.get_summary().values()]
     pars = pars[:10]
     startpos = None#np.array(pars)
-    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, times=np.array([0]), lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=10000, burn_in=5000)
+    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=10000, burn_in=5000)
 
 def run_set_gen_binwise_chrom0_bm0(*Npolys):
     for Npoly in Npolys:
@@ -751,6 +751,8 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     residuals = np.load('saves/MLmod/'+runstr+'_modres.npy')
     data      = np.load('saves/MLmod/'+runstr+'_data.npy')
     dataerr   = np.load('saves/MLmod/'+runstr+'_dataerr.npy')
+    rec_a00   = np.load("saves/MLmod/"+runstr+"_rec_a00.npy")
+    a00_error = np.load("saves/MLmod/"+runstr+"_rec_a00_err.npy")
 
     try:
         bic=np.load('saves/MLmod/'+runstr+'_bic.npy')
@@ -807,7 +809,7 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     plt.legend()
     plt.show()'''
 
-    fig, ax = plt.subplots(2, 1, figsize=(4,4), sharex=False, gridspec_kw={'height_ratios':[3,1]})
+    fig, ax = plt.subplots(2, 1, figsize=(4,4), sharex=True, gridspec_kw={'height_ratios':[3,1]})
     ax[0].plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
     ax[0].fill_between(
         OBS.nuarr,
@@ -827,14 +829,13 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
         edgecolor='none'
     )
     ax[1].set_xlabel("Frequency [MHz]")
-    ax[0].set_ylabel("21-cm a00 [K]")
+    ax[0].set_ylabel("21-cm $a_{00}$ [K]")
     ax[0].legend()
 
-
     ax[1].axhline(y=0, linestyle=':', color='k')
-    ax[1].errorbar(OBS.nuarr, residuals[:,0,0], dataerr[:,0,0], fmt='.', color='k')
+    ax[1].errorbar(OBS.nuarr, rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)), a00_error, fmt='.', color='k')
     ax[1].axhline(0, linestyle=':', color='k')
-    ax[1].set_ylabel(r"$T_\mathrm{res}$ [K]")
+    ax[1].set_ylabel(r"$a_{00}$ residuals [K]")
     fig.tight_layout()
     if savetag is not None:
         plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+".pdf")
@@ -844,6 +845,7 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc)
     print("monopole chi-sq", chi_sq)
     np.save('saves/MLmod/'+runstr+'_chi_sq.npy', chi_sq)
+
 
 def plot_ml_chi_sq_bic(Nant=4, Npolys=[], chromstr='3.4e-02', basemap_err=None, savetag=None):
     runstrs = []

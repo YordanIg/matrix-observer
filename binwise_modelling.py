@@ -432,20 +432,34 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
             chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
         else:
             chromfunc = BF.fwhm_func_tauscher
-        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=Ntau, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=Ntau, lats=lats, times=times, return_mat=True, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
     elif chrom is None:
         narrow_cosbeam = lambda x: BF.beam_cos(x, 0.8)
-        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
+        mat_A, (mat_G, mat_P, mat_Y, mat_B)  = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
         mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
+        mat_G = BlockMatrix(mat=mat_G, mode='block', nblock=len(nuarr))
+        mat_P = BlockMatrix(mat=mat_P, mode='block', nblock=len(nuarr))
+        mat_Y = BlockMatrix(mat=mat_Y, mode='block', nblock=len(nuarr))
+        mat_B = BlockMatrix(mat=mat_B, mode='block', nblock=len(nuarr))
 
-    # Perform fiducial observations
-    d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], Ntau, t_int=1000)#SM.add_noise_uniform(d, 0.01)
+    # Perform fiducial observations without binning.
+    d = mat_P @ mat_Y @ mat_B @ fid_alm
+    dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], Ntau, t_int=1000/(len(lats)*len(times)))#SM.add_noise_uniform(d, 0.01)
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
     dnoisy_vector = dnoisy.vector
     if chrom is not None:
+        # Perform an EDGES-style chromaticity correction.
+        # Generate alm of the Haslam-shifted sky and observe them using our beam.
+        has_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, const_idx=True, delta=basemap_err, err_type='bm', seed=124)
+        chrom_corr_numerator = mat_P @ mat_Y @ mat_B @ has_alm
+        # Construct an observation matrix of the hypothetical (non-chromatic) case.
+        mat_B_ref = BlockMatrix(mat=mat_B.block[10], nblock=mat_B.nblock)
+        chrom_corr_denom = mat_P @ mat_Y @ mat_B_ref @ has_alm
+        chrom_corr = chrom_corr_numerator.vector/chrom_corr_denom.vector
+        dnoisy_vector /= chrom_corr
+    elif chrom == 'bloop':
         # Perform an EDGES-style chromaticity correction.
         # Generate alm of the Haslam-shifted sky and observe them using our beam.
         has_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, const_idx=True, delta=basemap_err, err_type='bm', seed=124)
@@ -455,8 +469,13 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         chrom_corr_denom = mat_A_ref @ has_alm
         chrom_corr = chrom_corr_numerator.vector/chrom_corr_denom.vector
         dnoisy_vector /= chrom_corr
-    
-    dnoisy = BlockVector(vec=dnoisy_vector, nblock=dnoisy.nblock)
+
+    # Bin the noisy data and the noise.
+    dnoisy = mat_G@dnoisy
+
+    noise = np.std([np.sqrt(np.diag(noise_covar.block[n])) for n in range(noise_covar.nblock)], axis=1)
+    noise_covar_binned = np.diag(noise)**2
+    #dnoisy = BlockVector(vec=dnoisy_vector, nblock=dnoisy.nblock)
     
     # Set up the foreground model
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
@@ -470,7 +489,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     p0 += cm21_params
     
     try:
-        res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=np.sqrt(noise_covar.diag))
+        res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=noise)
     except RuntimeError:
         res = [np.array(p0), np.diag([1]*len(p0))]
     print("par est:", res[0])
@@ -479,8 +498,8 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     
     # Compute chi-square.
     residuals = dnoisy.vector - mod(res[0])
-    chi_sq = residuals @ noise_covar.matrix @ residuals
-    chi_sq = np.sum(residuals**2/noise_covar.diag)
+    chi_sq = residuals @ noise_covar_binned @ residuals
+    chi_sq = np.sum(residuals**2/np.diag(noise_covar_binned))
     print(f"Reduced chi square = {chi_sq/(len(dnoisy.vector)-(Npoly+3))}")
 
     if mcmc:
@@ -509,7 +528,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         
         p0 = INF.prior_checker(priors, p0)
         pos = p0*(1 + 1e-4*np.random.randn(nwalkers, ndim))
-        err = np.sqrt(noise_covar.diag)
+        err = noise
         sampler = EnsembleSampler(nwalkers, ndim, NRI.log_posterior, 
                             args=(dnoisy.vector, err, mod, priors))
         _=sampler.run_mcmc(pos, nsteps=steps, progress=True, skip_initial_state_check=True)

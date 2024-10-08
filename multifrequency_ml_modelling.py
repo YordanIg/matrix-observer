@@ -484,7 +484,8 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         np.save("saves/MLmod/"+prestr+savetag+"modres.npy", ((dnoisy-data_corr) - mat_A_mod@rec_alm).vector)
         np.save("saves/MLmod/"+prestr+savetag+"data.npy", dnoisy.vector)
         np.save("saves/MLmod/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag+covar_corr.diag))
-
+        np.save("saves/MLmod/"+prestr+savetag+"rec_a00.npy", rec_a00)
+        np.save("saves/MLmod/"+prestr+savetag+"rec_a00_err.npy", a00_error)
     del mat_A
     del mat_A_mod
     del mat_A_unmod
