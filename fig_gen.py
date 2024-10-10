@@ -639,7 +639,7 @@ def plot_binwise_chrom(Nant=4, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml
 
     plt.show()
 
-    chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc)
+    chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc**2)
     print("monopole chi-sq", chi_sq)
     np.save('saves/Binwise/'+runstr+'_chi_sq.npy', chi_sq)
 
@@ -842,7 +842,7 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
         plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+".png")
     plt.show()
     
-    chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc)
+    chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc**2)
     print("monopole chi-sq", chi_sq)
     np.save('saves/MLmod/'+runstr+'_chi_sq.npy', chi_sq)
 
