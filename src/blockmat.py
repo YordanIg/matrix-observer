@@ -365,6 +365,8 @@ class BlockVector(BlockMatrix):
         Define slicing for BlockVector objects. Returns a new BlockVector object 
         with each block in the vector sliced according to the provided slice.
         """
+        if isinstance(key, int):
+            return self[key:key+1].vector
         if isinstance(key, slice):
             new_matrix = [block[key, :] for block in self._matrix]
             return BlockVector(new_matrix, nblock=self.nblock)
