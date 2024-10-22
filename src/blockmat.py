@@ -185,6 +185,19 @@ class BlockMatrix:
         new_mat = self.block / other
         return BlockMatrix(new_mat, nblock=self.nblock)
     
+    def __getitem__(self, key):
+        """
+        Define slicing for BlockMatrix objects. Returns a new BlockMatrix object 
+        with each 2D array in the 3D array sliced according to the provided 
+        slices.
+        """
+        if isinstance(key, tuple) and len(key) == 2:
+            row_slice, col_slice = key
+            new_matrix = [block[row_slice, col_slice] for block in self._matrix]
+            return BlockMatrix(np.array(new_matrix), nblock=self.nblock)
+        else:
+            raise IndexError("Invalid index. Use a tuple of slices.")
+    
     @property
     def matrix(self):
         """
@@ -346,6 +359,17 @@ class BlockVector(BlockMatrix):
         """
         new_vec = self.block ** other
         return BlockVector(new_vec)
+    
+    def __getitem__(self, key):
+        """
+        Define slicing for BlockVector objects. Returns a new BlockVector object 
+        with each block in the vector sliced according to the provided slice.
+        """
+        if isinstance(key, slice):
+            new_matrix = [block[key, :] for block in self._matrix]
+            return BlockVector(new_matrix, nblock=self.nblock)
+        else:
+            raise IndexError("Invalid index. Use a slice.")
     
     @property
     def vector(self):
