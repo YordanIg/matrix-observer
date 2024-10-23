@@ -2,6 +2,7 @@
 Define likelihoods, priors, etc.
 """
 import numpy as np
+from emcee import EnsembleSampler
 #from pypolychord.priors import UniformPrior
 
 ################################################################################
@@ -93,6 +94,30 @@ def prior_checker(priors, p0):
             print(f"ERROR: {i}th parameter of p0 not in prior volume. Setting to mean of prior.")
             p0[i] = np.mean(priors[i])
     return p0
+
+def curve_fit_emcee(f, xdata, ydata, sigma, p0, bounds):
+    """
+    A clone of the scipy curve_fit function that uses MCMC instead, so you can
+    literally change the name and get the same functionality.
+    """
+    steps=10000
+    burn_in=3000
+    def mod(theta):
+        return f(xdata, *theta)
+    assert len(p0) == len(bounds[0])
+    assert len(p0) == len(bounds[1])
+    
+    nwalkers = 64
+    ndim = len(p0)
+    pos = p0*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+
+    priors = np.array((list(zip(bounds[0], bounds[1]))))
+    p0 = prior_checker(priors, p0)
+    sampler = EnsembleSampler(nwalkers, ndim, log_posterior, 
+                        args=(ydata, sigma, mod, priors))
+    _=sampler.run_mcmc(pos, nsteps=steps, progress=True, skip_initial_state_check=True)
+    chain_mcmc = sampler.get_chain(flat=True, discard=burn_in)
+    return np.mean(chain_mcmc, axis=0), np.cov(chain_mcmc, rowvar=False)
 
 
 ################################################################################
