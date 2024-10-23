@@ -17,6 +17,15 @@ def log_likelihood(theta, y, yerr, model):
     chi2 = (y - y_model)**2 / (yerr**2)
     return np.sum(-chi2 / 2)
 
+def log_likelihood_vectors(theta, y, invcov, model):
+    """
+    Compute the Gaussian log-likelihood, given a model(theta) and data y
+    with inverse covariance matrix invcov.
+    """
+    y_model = model(theta)
+    chi2 = (y - y_model) @ invcov @ (y - y_model)
+    return np.sum(-chi2 / 2)
+
 def log_prior(theta, prior_pars):
     """
     Log Prior probability
@@ -61,6 +70,12 @@ def log_posterior(theta, y, yerr, model, prior_pars):
     lp = log_prior(theta, prior_pars)
     if np.isfinite(lp):
         lp += log_likelihood(theta, y, yerr, model)
+    return lp
+
+def log_posterior_vectors(theta, y, invcov, model, prior_pars):
+    lp = log_prior(theta, prior_pars)
+    if np.isfinite(lp):
+        lp += log_likelihood_vectors(theta, y, invcov, model)
     return lp
 
 def prior_checker(priors, p0):
