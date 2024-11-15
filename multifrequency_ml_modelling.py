@@ -17,6 +17,7 @@ import src.sky_models as SM
 import src.map_making as MM
 from src.blockmat import BlockMatrix, BlockVector
 import src.inference as INF
+import src.observing as OBS
 from anstey.generate import T_CMB
 
 RS = SH.RealSphericalHarmonics()
@@ -219,7 +220,7 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
     lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
-    cm21_params     = (-0.2, 80.0, 5.0)
+    cm21_params     = OBS.cm21_params
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
 
     # Generate foreground and 21-cm signal alm
@@ -285,7 +286,7 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
     Npoly = 8
     fg_mon_p0 = [15, 2.5]
     fg_mon_p0 += [.001]*(Npoly-2)
-    cm21_mon_p0 = [-0.2, 80, 5]
+    cm21_mon_p0 = OBS.cm21_params
     res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
 
     if reg_delta is None:
@@ -294,7 +295,7 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
         _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False, steps=10000, burn_in=3000):
+def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False, steps=10000, burn_in=3000, plotml=True):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -302,14 +303,14 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     # Model and observation params
     nside   = 32
     lmax    = 32
-    lmod    = 1
+    lmod    = 3
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     if lats is None:
         lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])#np.linspace(-80, 80, 100)#
     times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
-    cm21_params     = (-0.2, 80.0, 5.0)
+    cm21_params     = OBS.cm21_params
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
 
     # Generate foreground and 21-cm signal alm
@@ -333,7 +334,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=100, seed=456)#t_int=100, seed=456)#
+    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=500, seed=456)#t_int=100, seed=456)#
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
@@ -386,10 +387,15 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
     fg_mon_p0 = [15, 2.5]
     fg_mon_p0 += [.001]*(Npoly-2)
-    cm21_mon_p0 = [-0.2, 80, 5]
-    res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
+    cm21_mon_p0 = OBS.cm21_params
+    bounds = [[1, 25], [1.5, 3.5]]
+    bounds += [[-2, 2.1]]*(Npoly-2)
+    bounds += [[-0.4, -0.02], [62, 88], [6, 14]]
+    bounds = list(zip(*bounds))
+    res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0, bounds=bounds)
 
-    _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
+    if plotml:
+        _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
 
     if mcmc:
         def mod(theta):
@@ -404,7 +410,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
             pos = res[0]*(1 + 1e-4*np.random.randn(nwalkers, ndim))
         priors = [[1, 25], [1.5, 3.5]]
         priors += [[-2, 2.1]]*(Npoly-2)
-        priors += [[-0.5, -0.01], [70, 90], [1, 8]]
+        priors += [[-0.5, -0.01], [60, 90], [5, 15]]
         priors = np.array(priors)
         # run emcee without priors
         sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior, 
