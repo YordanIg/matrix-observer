@@ -9,10 +9,12 @@ from chainconsumer import ChainConsumer
 from numba import jit
 
 import nregions_inference as NRI
+import src.inference as INF
 import src.observing as OBS
 import src.sky_models as SM
 import src.forward_model as FM
 import src.beam_functions as BF
+from src.blockmat import BlockMatrix, BlockVector
 from anstey.generate import T_CMB
 from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
@@ -338,7 +340,7 @@ def compare_fm_fid_reconstruction(lmax, lmod, Npoly, steps=3000, burn_in=1000, s
     del mat_A
 
 
-def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_in=1000, savetag=None, basemap_err=5, chrom=None):
+def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3000, burn_in=1000, savetag=None, basemap_err=5, chrom=None):
     """
     Forward-model fit the first lmod alms of the foreground polynomial model and
     the Gaussian 21-cm monopole,
@@ -346,9 +348,10 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     """
     # Generate the data.
     nside = 32
-    times = np.linspace(0, 24, 3, endpoint=False)
+    times = np.linspace(0, 24, 12, endpoint=False)
     noise = 0.01
-    lats  = [-26, 26]
+    if lats is None:
+        lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
     Ntau  = 6
     cm21_mon_pars = [-0.2, 80.0, 5.0]
     delta = SM.basemap_err_to_delta(percent_err=basemap_err)
@@ -370,48 +373,58 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, steps=3000, burn_i
     # Compute the 0<l<lmod alm polynomial parameters as an initial guess for the
     # inference, and store the lmod<l<lmax alms to use as the fiducial correction.
     nuarr = NRI.nuarr
-    a = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True)
+    a = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=delta)
     a_sep = np.array(np.split(a, len(nuarr)))
     Nlmod = RS.get_size(lmax=lmod)
+    Nlmax = RS.get_size(lmax=lmax)
     alms_for_guess = a_sep.T[:Nlmod]
-    alms_for_corr  = a_sep.T[Nlmod:]
     fitlist=_fit_alms(nuarr=nuarr, alm_list=alms_for_guess, Npoly=Npoly)
     theta_guess = fitlist.flatten()
     print(fitlist.flatten())
-    theta_guess = np.append(theta_guess, cm21_mon_pars)
+
+    # Generate a missing-modes correction analytically.
+    mat_A_unmod = BlockMatrix(mat_A.block[:,:,Nlmod:])
+    alm_mean, alm_cov = SM.gsma_corr(lmod, lmax, nside, nuarr, basemap_err)
+    covar_corr = mat_A_unmod @ alm_cov @ mat_A_unmod.T
+    alms_for_corr = np.reshape(alm_mean, (Nlmax-Nlmod, len(nuarr)))
+    total_inv_cov = (noise_covar + covar_corr).inv
+    total_inv_cov_np = total_inv_cov.matrix
 
     # Instantiate the model.
+    mod_fg = FM.genopt_alm_plfid_forward_model(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
     mod = FM.genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
-
+    priors = [[-10, 25], [1.5, 3.5]]
+    priors += [[-100, 100.1]]*(Npoly-2)
+    priors = priors*Nlmod
+    bounds = [list(x) for x in zip(*priors)]
+    
     # First run curve_fit to generate a better starting guess (if basemap errs 
     # are included)
     if chrom is not None and chrom is not False and lmod==0:
         try:
             def mod_cf(nuarr, *theta):
                 theta = np.array(theta)
-                return mod(theta)
-            p0 = [10, -2.5]
-            p0 += [0.01]*(Npoly-2)
-            res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=theta_guess, method="dogbox")
+                return mod_fg(theta)
+            res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=theta_guess, method="dogbox", bounds=bounds)
             theta_guess = res[0]
         except RuntimeError:
             print("failed to estimate optimal parameters using curve_fit")
-
-    # create a small ball around the MLE the initialize each walker
-    nwalkers, fg_dim = 64, Npoly*Nlmod
-    ndim = fg_dim + len(cm21_mon_pars)
-    pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
-
-    # run emcee with priors
-    priors = [[1, 25], [1.5, 3.5]]
-    priors += [[-2, 2]]*(Npoly-2)
+    
+    # Add the 21-cm parameters to theta_guess.
+    theta_guess = np.append(theta_guess, cm21_mon_pars)
+    priors = [[-10, 25], [1.5, 3.5]]
+    priors += [[-100, 100]]*(Npoly-2)
     priors = priors*Nlmod
     priors += [[-0.5, -0.01], [60, 90], [1, 8]]
     priors = np.array(priors)
-    #theta_guess = np.mean(priors, axis=1)
+    theta_guess = INF.prior_checker(priors, theta_guess)
+    
 
-    sampler = EnsembleSampler(nwalkers, ndim, NRI.log_likelihood, 
-                        args=(dnoisy.vector, err, mod))
+    nwalkers, fg_dim = 64, Npoly*Nlmod
+    ndim = fg_dim + len(cm21_mon_pars)
+    pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+    sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior_vectors, 
+                        args=(dnoisy.vector, total_inv_cov_np, mod, priors))
     _=sampler.run_mcmc(pos, nsteps=steps, progress=True)
 
     if savetag is None:
