@@ -234,6 +234,35 @@ def plot_skytrack_maps():
     plt.savefig("fig/skytrack_maps.pdf")
     plt.show()
 
+################################################################################
+# FWHM plot.
+################################################################################
+def plot_fwhm():
+    """
+    Plot the fwhm function from Tauscher et al. 2020 as a function of frequency
+    for a range of values of the chromaticity parameter c.
+    """
+    nu = np.linspace(50, 100, 100)
+    fig, ax = plt.subplots()
+    c_values = [8.0e-3, 1.6e-2, 2.4e-2, 3.4e-2]
+    for c in c_values:
+        ax.plot(nu, np.degrees(BF.fwhm_func_tauscher(nu, c)), label=f"c={c:.1e}")
+    
+    ax.set_xlabel("Frequency [MHz]")
+    ax.set_ylabel("Beam FWHM [deg]")
+    ax.legend()
+    
+    # Adjust x and y limits
+    ax.set_xlim([50, 100])
+    y_min = np.min([np.degrees(BF.fwhm_func_tauscher(nu, c)) for c in c_values])
+    y_max = np.max([np.degrees(BF.fwhm_func_tauscher(nu, c)) for c in c_values])
+    y_margin = (y_max - y_min) * 0.05  # Add a 5% margin to the y-axis limits
+    ax.set_ylim([y_min - y_margin, y_max])
+    
+    fig.tight_layout()
+    plt.savefig("fig/fwhm.pdf")
+    plt.show()
+
 
 ################################################################################
 # Alm polynomial forward model inference functions.
