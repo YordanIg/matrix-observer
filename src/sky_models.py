@@ -10,6 +10,10 @@ Models should return a vector of alm with structure
 import healpy
 import numpy as np
 import os
+
+import src.sky_models as SM
+from src.spherical_harmonics import RealSphericalHarmonics
+RS = RealSphericalHarmonics()
 if os.uname()[1]=='yordan-XPS-15-9560':
     from pygdsm import GlobalSkyModel16 as GlobalSkyModel2016
     ROOT = '/home/yordan/Documents/boosted-compass/matrix-observer'
@@ -530,4 +534,48 @@ def haslam_scaled_map(nu, nside=None):
     if hl_map.shape[0] == 1:
         return hl_map.flatten()
     return hl_map
+
+
+def gsma_corr(lmod, lmax, nside, nuarr, bmerr):
+    """
+    Compute and return the GSMA error instance alm mean correction and covariance
+    matrix, truncated as requested. Will first check to see if the relevant 
+    correction has not already been generated, in which case it will be loaded
+    instead.
+    """
+    Nlmod = RS.get_size(lmod)
+    while True:
+        try:
+            alm_cov  = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_cov.npy".format(nside, lmax, bmerr))
+            alm_cov  = alm_cov[:,Nlmod:,Nlmod:]
+            alm_mean = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, bmerr))
+            alm_mean = alm_mean[:,Nlmod:]
+            alm_mean = alm_mean.flatten()
+            s = "Loaded mean and covar correction for nside<{}>_lmax<{}>_bmerr<{}>"
+            print(s.format(nside, lmax, bmerr))
+            return alm_mean, BlockMatrix(mat=alm_cov)
+        except:
+            s = "Failed loading mean and covar correction for nside<{}>_lmax<{}>_bmerr<{}>, generating instead."
+            print(s.format(nside, lmax, bmerr))
+
+            gsma_maps = SM.foreground_gsma_nsidelo(nu=nuarr, nside=nside)
+            delta = SM.basemap_err_to_delta(percent_err=bmerr)
+
+            temp_cov_blocks = []
+            temp_mean_blocks = []
+
+            for nu, gsma_map in zip(nuarr, gsma_maps):
+                sigma_T   = delta * np.log(408/nu)
+
+                exponents = np.exp(2*sigma_T**2) - np.exp(sigma_T**2)
+                temp_cov_block_diag = exponents*(gsma_map - T_CMB)**2
+                temp_cov_blocks.append(np.diag(temp_cov_block_diag))
+                temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
+                temp_mean_blocks.append(temp_mean_block)
+
+            inv_Y = np.linalg.pinv(SH.calc_spherical_harmonic_matrix(nside=nside, lmax=lmax))
+            alm_mean = [inv_Y @ temp_mean_block for temp_mean_block in temp_mean_blocks]
+            alm_cov  = [inv_Y @ temp_cov_block @ inv_Y.T for temp_cov_block in temp_cov_blocks]
+            np.save("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_cov.npy".format(nside, lmax, bmerr), np.array(alm_cov))
+            np.save("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, bmerr), np.array(alm_mean))
     
