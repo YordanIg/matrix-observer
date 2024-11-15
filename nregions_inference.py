@@ -20,7 +20,7 @@ from chainconsumer import ChainConsumer
 import src.forward_model as FM
 import src.beam_functions as BF
 import src.sky_models as SM
-from src.inference import log_likelihood, log_posterior, log_prior, log_prior_gauss
+from src.inference import log_likelihood, log_likelihood_vectors, log_posterior, log_prior, log_prior_gauss
 from src.observing import fiducial_obs, default_pars, Nfreq, nuarr
 from src.spherical_harmonics import RealSphericalHarmonics
 RS = RealSphericalHarmonics()
