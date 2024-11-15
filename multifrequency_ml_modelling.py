@@ -15,7 +15,6 @@ import src.spherical_harmonics as SH
 import src.forward_model as FM
 import src.sky_models as SM
 import src.map_making as MM
-import src.plotting as PL
 from src.blockmat import BlockMatrix, BlockVector
 import src.inference as INF
 from anstey.generate import T_CMB
@@ -295,51 +294,6 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
         _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def gsma_corr(lmod, lmax, nside, nuarr, bmerr):
-    """
-    Compute and return the GSMA error instance alm mean correction and covariance
-    matrix, truncated as requested. Will first check to see if the relevant 
-    correction has not already been generated, in which case it will be loaded
-    instead.
-    """
-    Nlmod = RS.get_size(lmod)
-    while True:
-        try:
-            alm_cov  = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_cov.npy".format(nside, lmax, bmerr))
-            alm_cov  = alm_cov[:,Nlmod:,Nlmod:]
-            alm_mean = np.load("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, bmerr))
-            alm_mean = alm_mean[:,Nlmod:]
-            alm_mean = alm_mean.flatten()
-            s = "Loaded mean and covar correction for nside<{}>_lmax<{}>_bmerr<{}>"
-            print(s.format(nside, lmax, bmerr))
-            return alm_mean, BlockMatrix(mat=alm_cov)
-        except:
-            s = "Failed loading mean and covar correction for nside<{}>_lmax<{}>_bmerr<{}>, generating instead."
-            print(s.format(nside, lmax, bmerr))
-        
-            gsma_maps = SM.foreground_gsma_nsidelo(nu=nuarr, nside=nside)
-            delta = SM.basemap_err_to_delta(percent_err=bmerr)
-
-            temp_cov_blocks = []
-            temp_mean_blocks = []
-
-            for nu, gsma_map in zip(nuarr, gsma_maps):
-                sigma_T   = delta * np.log(408/nu)
-
-                exponents = np.exp(2*sigma_T**2) - np.exp(sigma_T**2)
-                temp_cov_block_diag = exponents*(gsma_map - T_CMB)**2
-                temp_cov_blocks.append(np.diag(temp_cov_block_diag))
-                temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
-                temp_mean_blocks.append(temp_mean_block)
-
-            inv_Y = np.linalg.pinv(SH.calc_spherical_harmonic_matrix(nside=nside, lmax=lmax))
-            alm_mean = [inv_Y @ temp_mean_block for temp_mean_block in temp_mean_blocks]
-            alm_cov  = [inv_Y @ temp_cov_block @ inv_Y.T for temp_cov_block in temp_cov_blocks]
-            np.save("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_cov.npy".format(nside, lmax, bmerr), np.array(alm_cov))
-            np.save("saves/gsma_corr_nside<{}>_lmax<{}>_bmerr<{}>_mean.npy".format(nside, lmax, bmerr), np.array(alm_mean))
-
-
-
 def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False, steps=10000, burn_in=3000):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
@@ -348,7 +302,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     # Model and observation params
     nside   = 32
     lmax    = 32
-    lmod    = 3
+    lmod    = 1
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     if lats is None:
@@ -411,24 +365,22 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     
     # Generate a missing-modes correction analytically.
     elif not numerical_corr:
-        alm_mean, alm_cov = gsma_corr(lmod, lmax, nside, nuarr, basemap_err)
+        alm_mean, alm_cov = SM.gsma_corr(lmod, lmax, nside, nuarr, basemap_err)
         data_corr = mat_A_unmod @ alm_mean
         covar_corr = mat_A_unmod @ alm_cov @ mat_A_unmod.T
 
     # Reconstruct the max likelihood estimate of the alm
     mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True, cond=True)
-
     alm_error = np.sqrt(cov.diag)
     rec_alm = mat_W @ (dnoisy - data_corr)
+
     # Compute the chi-square and compare it to the length of the data vector.
     chi_sq = ((dnoisy - data_corr) - mat_A_mod@rec_alm).T @ noise_covar.inv @ ((dnoisy - data_corr) - mat_A_mod@rec_alm)
     chi_sq = sum(chi_sq.diag)
     print("Chi-square:", chi_sq, "len(data):", dnoisy.vec_len,"+/-", np.sqrt(2*dnoisy.vec_len), "Nparams:", Nlmod*len(nuarr))
     
-    rec_a00 = np.array(rec_alm.vector[::Nlmod])
- 
-
     # Extract the monopole component of the reconstructed alm.
+    rec_a00 = np.array(rec_alm.vector[::Nlmod])
     a00_error = np.array(alm_error[::Nlmod])
 
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
@@ -437,7 +389,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     cm21_mon_p0 = [-0.2, 80, 5]
     res = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0)
 
-    #_plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
+    _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res)
 
     if mcmc:
         def mod(theta):
@@ -587,10 +539,103 @@ def _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, fi
     f = c.plotter.plot()
     plt.show()
 
-    # Evaluate the model at 100 points drawn from the chain to get 1sigma 
+    # Evaluate the model at 1000 points drawn from the chain to get 1sigma 
     # inference bounds in data space.
     cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
-    chain_samples = np.random.multivariate_normal(mean=final_fitres[0][-3:], cov=final_fitres[1][-3:,-3:], size=100)
+    chain_samples = np.random.multivariate_normal(mean=final_fitres[0][-3:], cov=final_fitres[1][-3:,-3:], size=1000)
+    cm21_a00_sample_list = [cm21_a00_mod(nuarr, theta) for theta in chain_samples]
+    cm21_a00_sample_mean = np.mean(cm21_a00_sample_list, axis=0)
+    cm21_a00_sample_std = np.std(cm21_a00_sample_list, axis=0)
+
+    # Plot the model evaluated 1 sigma regions and the fiducial monopole.
+    cm21_a00 = np.array(cm21_alm[::Nlmax])
+    plt.plot(nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-cm21_a00_sample_std, 
+        cm21_a00_sample_mean+cm21_a00_sample_std,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-2*cm21_a00_sample_std, 
+        cm21_a00_sample_mean+2*cm21_a00_sample_std,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("21-cm a00 [K]")
+    plt.legend()
+    plt.show()
+
+    # Do the same thing but take the residuals.
+    plt.plot(nuarr, cm21_a00-cm21_a00, label='fiducial', linestyle=':', color='k')
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-cm21_a00_sample_std-cm21_a00, 
+        cm21_a00_sample_mean+cm21_a00_sample_std-cm21_a00,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    plt.fill_between(
+        nuarr,
+        cm21_a00_sample_mean-2*cm21_a00_sample_std-cm21_a00, 
+        cm21_a00_sample_mean+2*cm21_a00_sample_std-cm21_a00,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("Inferred 21-cm a00 residuals [K]")
+    plt.legend()
+    plt.show()
+
+def _plot_results_mcmc(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, chain):
+    fg_alm = fid_alm-cm21_alm
+
+    # Extract the monopole component of the reconstructed alm.
+    fid_a00  = np.array(fid_alm[::Nlmax])
+    fg_a00  = np.array(fg_alm[::Nlmax])
+    rec_a00 = np.array(rec_alm[::Nlmod])
+    a00_error = np.array(alm_error[::Nlmod])
+
+    # Plot the reconstructed a00 mode minus the fiducial a00 mode.
+    plt.plot(nuarr, rec_a00-fid_a00, label='$a_{00}$ reconstructed - $a_{00}$ fid fg')
+    plt.axhline(y=0, linestyle=":", color='k')
+    plt.legend()
+    plt.ylabel("Temperature [K]")
+    plt.xlabel("Frequency [MHz]")
+    plt.show()
+
+    # Plot the reconstructed a00 mode minus the best-fitting power law with no
+    # running.
+    res = curve_fit(fg_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=[15,2.5])
+    plt.plot(nuarr, rec_a00-fg_polymod(nuarr, *res[0]), label='$a_{00}$ reconstructed - power law')
+    plt.axhline(y=0, linestyle=":", color='k')
+    plt.legend()
+    plt.ylabel("Temperature [K]")
+    plt.xlabel("Frequency [MHz]")
+    plt.show()
+
+    # Provide a corner plot for the 21-cm inference.
+    # Draw samples from the likelihood.
+    c = ChainConsumer()
+    c.add_chain(chain[:,-3:], parameters=['A', 'nu0', 'dnu'])
+    f = c.plotter.plot()
+    plt.show()
+
+    # Evaluate the model at 1000 points drawn from the chain to get 1sigma 
+    # inference bounds in data space.
+    cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
+    idx_mcmcChain = np.random.choice(a=list(range(len(chain))), size=1000)
+    chain_samples = chain[idx_mcmcChain]
+    chain_samples = chain_samples[:,-3:]
     cm21_a00_sample_list = [cm21_a00_mod(nuarr, theta) for theta in chain_samples]
     cm21_a00_sample_mean = np.mean(cm21_a00_sample_list, axis=0)
     cm21_a00_sample_std = np.std(cm21_a00_sample_list, axis=0)
