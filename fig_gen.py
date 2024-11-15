@@ -9,13 +9,16 @@ from matplotlib import gridspec
 import numpy as np
 from chainconsumer import ChainConsumer
 import healpy as hp
+from matplotlib import cm, colorbar
+from matplotlib.colors import Normalize
 
 import src.observing as OBS
 import src.sky_models as SM
+import src.coordinates as CO
 import src.beam_functions as BF
 import src.forward_model as FM
 from src.blockmat import BlockMatrix
-from src.spherical_harmonics import RealSphericalHarmonics
+from src.spherical_harmonics import RealSphericalHarmonics, calc_spherical_harmonic_matrix
 RS = RealSphericalHarmonics()
 
 from binwise_modelling import fg_cm21_chrom_corr
@@ -169,6 +172,68 @@ def plot_basemap_err(save=False):
     else:
         plt.show()
     plt.close("all")
+
+################################################################################
+# Skytrack maps with modelled and unmodelled foreground modes.
+################################################################################
+def plot_skytrack_maps():
+    # Generate the sky tracks of 7 antennas.
+    lats = [-3*26, -2*26, -1*26, 0, 1*26, 2*26, 3*26]
+    coords = [CO.obs_zenith_drift_scan(lat, lon=0, times=np.linspace(0,24,1000)) for lat in lats]
+    nside=256
+    _,pix = CO.calc_pointing_matrix(*coords,nside=nside, pixels=True)
+    m = np.zeros(hp.nside2npix(nside))
+    m[pix] = 1
+    hp.mollview(m)
+    thetas, phis = hp.pix2ang(nside, pix)
+    # Generate the foreground sky alm at 60 MHz.
+    fg_alm = SM.foreground_gsma_alm_nsidelo(nu=60, lmax=32, nside=32, use_mat_Y=True)
+
+    # Generate a beam matrix to observe it with.
+    mat_B  = BF.calc_beam_matrix(nside=32, lmax=32)
+
+    # Generate/load the spherical harmonic matrix.
+    mat_Y  = calc_spherical_harmonic_matrix(nside=32, lmax=32)
+
+    # Split the spherical harmonic matrix into the low and high multipole sections, dividing at lmod.
+    lmod  = 3
+    Nlmod = RS.get_size(lmod)
+    mat_Y_mod   = mat_Y[:,:Nlmod]
+    mat_Y_unmod = mat_Y[:,Nlmod:]
+
+    # Convolve the foregrounds with the beam.
+    conv_fg = mat_B@fg_alm
+
+    # Transform with the spherical harmonic matrix.
+    mod_sky   = mat_Y_mod @ conv_fg[:Nlmod]
+    unmod_sky = mat_Y_unmod @ conv_fg[Nlmod:]
+
+    fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(6,6))
+    ls = (0, (8, 5))
+    plt.axes(ax1)
+    hp.mollview(mod_sky, hold=True, cbar=None, title=None)
+    hp.projplot(thetas, phis, linestyle=ls, color='r', linewidth=2)
+
+    plt.axes(ax2)
+    hp.mollview(unmod_sky, hold=True, cbar=None, title=None)
+    hp.projplot(thetas, phis, linestyle=ls, color='r', linewidth=2)
+
+    normalize       = Normalize(vmin=np.min(mod_sky), vmax=np.max(mod_sky))
+    scalar_mappable = cm.ScalarMappable(norm=normalize)
+    colorbar_axis   = fig.add_axes([.16-0.06, .66-0.11, 0.03, .33])  # Colorbar location.
+    cbar1 = colorbar.ColorbarBase(colorbar_axis, norm=normalize, 
+                        orientation='vertical', ticklocation='left')
+    cbar1.set_label(r'Temperature [K]')
+
+    normalize       = Normalize(vmin=np.min(unmod_sky), vmax=np.max(unmod_sky))
+    scalar_mappable = cm.ScalarMappable(norm=normalize)
+    colorbar_axis   = fig.add_axes([.16-0.06, 0.13, 0.03, .33])  # Colorbar location.
+    cbar2 = colorbar.ColorbarBase(colorbar_axis, norm=normalize, 
+                        orientation='vertical', ticklocation='left')
+    cbar2.set_label(r'Temperature [K]')
+    plt.savefig("fig/skytrack_maps.pdf")
+    plt.show()
+
 
 ################################################################################
 # Alm polynomial forward model inference functions.
