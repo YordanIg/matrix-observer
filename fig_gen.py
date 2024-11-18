@@ -854,6 +854,7 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     residuals = np.load('saves/MLmod/'+runstr+'_modres.npy')
     data      = np.load('saves/MLmod/'+runstr+'_data.npy')
     dataerr   = np.load('saves/MLmod/'+runstr+'_dataerr.npy')
+    fid_a00   = np.load("saves/MLmod/"+runstr+"_fid_a00.npy")
     rec_a00   = np.load("saves/MLmod/"+runstr+"_rec_a00.npy")
     a00_error = np.load("saves/MLmod/"+runstr+"_rec_a00_err.npy")
 
@@ -889,29 +890,6 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
     a00std_mcmc  = np.std(a00list_mcmc, axis=0)
 
-    '''plt.plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
-    plt.fill_between(
-        OBS.nuarr,
-        a00mean_mcmc-a00std_mcmc, 
-        a00mean_mcmc+a00std_mcmc,
-        color='C1',
-        alpha=0.8,
-        edgecolor='none',
-        label="inferred"
-    )
-    plt.fill_between(
-        OBS.nuarr,
-        a00mean_mcmc-2*a00std_mcmc, 
-        a00mean_mcmc+2*a00std_mcmc,
-        color='C1',
-        alpha=0.4,
-        edgecolor='none'
-    )
-    plt.xlabel("Frequency [MHz]")
-    plt.ylabel("21-cm a00 [K]")
-    plt.legend()
-    plt.show()'''
-
     fig, ax = plt.subplots(2, 1, figsize=(4,4), sharex=True, gridspec_kw={'height_ratios':[3,1]})
     ax[0].plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
     ax[0].fill_between(
@@ -943,6 +921,14 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     if savetag is not None:
         plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+".pdf")
         plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+".png")
+    plt.show()
+
+    plt.errorbar(OBS.nuarr, fid_a00-rec_a00, a00_error, fmt='.')
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("inferred $a_{00}$ residuals [K]")
+    if savetag is not None:
+        plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_inferred_a00_res.pdf")
+        plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_inferred_a00_res.png")
     plt.show()
     
     chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc**2)
