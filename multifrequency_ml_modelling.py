@@ -303,7 +303,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     # Model and observation params
     nside   = 32
     lmax    = 32
-    lmod    = 3
+    lmod    = 5
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
     if lats is None:
@@ -428,7 +428,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     
         np.save("saves/MLmod/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
         
-        # Calculate the BIC for MCMC.    
+        # Calculate the BIC for MCMC.
         c = ChainConsumer()
         c.add_chain(chain_mcmc, statistics='max')
         analysis_dict = c.analysis.get_summary(squeeze=True)
@@ -439,9 +439,11 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         np.save("saves/MLmod/"+prestr+savetag+"bic.npy", bic)
 
         # Calculate the total model residuals and save them for plotting.
+        fid_a00 = fid_alm[::Nlmax]
         np.save("saves/MLmod/"+prestr+savetag+"modres.npy", ((dnoisy-data_corr) - mat_A_mod@rec_alm).vector)
         np.save("saves/MLmod/"+prestr+savetag+"data.npy", dnoisy.vector)
         np.save("saves/MLmod/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag+covar_corr.diag))
+        np.save("saves/MLmod/"+prestr+savetag+"fid_a00.npy", fid_a00)
         np.save("saves/MLmod/"+prestr+savetag+"rec_a00.npy", rec_a00)
         np.save("saves/MLmod/"+prestr+savetag+"rec_a00_err.npy", a00_error)
     del mat_A
