@@ -490,7 +490,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     #dnoisy = BlockVector(vec=dnoisy_vector, nblock=dnoisy.nblock)
     
     # Set up the foreground model
-    mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
+    mod = FM.genopt_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
     mod_prerun = FM.generate_binwise_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
