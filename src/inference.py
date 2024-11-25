@@ -3,6 +3,7 @@ Define likelihoods, priors, etc.
 """
 import numpy as np
 from emcee import EnsembleSampler
+from scipy.optimize import curve_fit
 #from pypolychord.priors import UniformPrior
 
 ################################################################################
@@ -95,18 +96,29 @@ def prior_checker(priors, p0):
             p0[i] = np.mean(priors[i])
     return p0
 
-def curve_fit_emcee(f, xdata, ydata, sigma, p0, bounds):
+def curve_fit_emcee(f, xdata, ydata, sigma, bounds, p0=None, chain=False):
     """
     A clone of the scipy curve_fit function that uses MCMC instead, so you can
     literally change the name and get the same functionality.
+
+    To leverage the full functionality of MCMC, pass the chain=True to also
+    return the chain of the MCMC run.
+
+    If p0 is None, will run the standard curve_fit function to get the initial
+    guess for the parameters.
     """
     steps=10000
     burn_in=3000
     def mod(theta):
         return f(xdata, *theta)
-    assert len(p0) == len(bounds[0])
-    assert len(p0) == len(bounds[1])
+    if p0 is not None:
+        assert len(p0) == len(bounds[0])
+        assert len(p0) == len(bounds[1])
     
+    if p0 is None:
+        cf_p0 = np.mean(bounds, axis=0)
+        p0, _ = curve_fit(f, xdata, ydata, sigma=sigma, bounds=bounds, p0=cf_p0)
+        print("Initial guess from curve_fit:", p0)
     nwalkers = 64
     ndim = len(p0)
     pos = p0*(1 + 1e-4*np.random.randn(nwalkers, ndim))
@@ -117,6 +129,8 @@ def curve_fit_emcee(f, xdata, ydata, sigma, p0, bounds):
                         args=(ydata, sigma, mod, priors))
     _=sampler.run_mcmc(pos, nsteps=steps, progress=True, skip_initial_state_check=True)
     chain_mcmc = sampler.get_chain(flat=True, discard=burn_in)
+    if chain:
+        return np.mean(chain_mcmc, axis=0), np.cov(chain_mcmc, rowvar=False), chain_mcmc
     return np.mean(chain_mcmc, axis=0), np.cov(chain_mcmc, rowvar=False)
 
 
