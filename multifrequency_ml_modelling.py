@@ -372,16 +372,27 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
 
     # Reconstruct the max likelihood estimate of the alm
     mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True, cond=True)
-    alm_error = np.sqrt(cov.diag)
-    rec_alm = mat_W @ (dnoisy - data_corr)
+    if isinstance(cov, BlockMatrix):
+        alm_error = np.sqrt(cov.diag)
+    else:
+        alm_error = np.sqrt(np.diag(cov))
+    print("Computing rec alm")
+    if isinstance(mat_W, BlockMatrix):
+        rec_alm = mat_W @ (dnoisy - data_corr)
+    else:
+        rec_alm = mat_W @ (dnoisy - data_corr).vector
 
     # Compute the chi-square and compare it to the length of the data vector.
+    print("Computing chi-sq")
     chi_sq = ((dnoisy - data_corr) - mat_A_mod@rec_alm).T @ noise_covar.inv @ ((dnoisy - data_corr) - mat_A_mod@rec_alm)
     chi_sq = sum(chi_sq.diag)
     print("Chi-square:", chi_sq, "len(data):", dnoisy.vec_len,"+/-", np.sqrt(2*dnoisy.vec_len), "Nparams:", Nlmod*len(nuarr))
     
     # Extract the monopole component of the reconstructed alm.
-    rec_a00 = np.array(rec_alm.vector[::Nlmod])
+    if isinstance(rec_alm, BlockVector):
+        rec_a00 = np.array(rec_alm.vector[::Nlmod])
+    else:
+        rec_a00 = np.array(rec_alm[::Nlmod])
     a00_error = np.array(alm_error[::Nlmod])
 
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
