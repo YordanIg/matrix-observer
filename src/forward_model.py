@@ -639,3 +639,35 @@ def generate_binwise_cm21_forward_model(nuarr, observation_mat: BlockMatrix, Npo
         polyvec = np.exp(polyvec)
         return polyvec + cm21_mon + T_CMB
     return model
+
+def genopt_binwise_cm21_forward_model(nuarr, observation_mat: BlockMatrix, Npoly=2):
+    """
+    Generate a binwise cm21 forward model with Numba JIT optimization.
+    """
+    # Determine the number of bins and number of frequencies, and make sure they
+    # are all consistent.
+    assert observation_mat.nblock == len(nuarr)
+    Nfreq = len(nuarr)
+    Nbin  = observation_mat.block_shape[0]
+
+    @jit
+    def model(theta):
+        theta_fg = theta[:-3]
+        theta_A, theta_nu0, theta_dnu = theta[-3:]
+        cm21_mon = cm21_globalT(nuarr, theta_A, theta_nu0, theta_dnu)
+        theta_fg = np.reshape(theta_fg, (Nbin, Npoly))
+        
+        polyvec = np.zeros(Nfreq * Nbin)
+        idx = 0
+        for bin_idx in range(Nbin):
+            for nu_idx in range(Nfreq):
+                nu = nuarr[nu_idx]
+                to_sum = 0.0
+                for i in range(Npoly):
+                    to_sum += theta_fg[bin_idx, i] * np.log(nu / 60) ** i
+                polyvec[idx] = np.exp(to_sum)
+                idx += 1
+        
+        return polyvec + cm21_mon + T_CMB
+
+    return model
