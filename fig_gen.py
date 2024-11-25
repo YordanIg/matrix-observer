@@ -5,6 +5,7 @@ from functools import partial
 import pickle
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib import gridspec
 import numpy as np
 from chainconsumer import ChainConsumer
@@ -772,13 +773,21 @@ def plot_binwise_chi_sq_bic(Nant=7, Npolys=[], chromstr='3.4e-02', basemap_err=N
 
     fig, ax1 = plt.subplots()
     ax1.axhline(y=1, linestyle=':', color='k')
-    ax1.semilogy(Npolys,chi_sqs, color='C0')
-    ax1.set_ylabel(r"$\chi^2$")
+    ax1.semilogy(Npolys,chi_sqs, color='C0', linestyle='-', marker='o')
+    ax1.set_xticks(ticks=Npolys, labels=Npolys)
+    ax1.set_xticks(ticks=[], minor=True)
+    ax1.set_ylabel(r"21-cm Monpole $\chi^2$")
     ax1.set_xlabel("$N_\mathrm{poly}$")
-
+    ax1.set_xlim([Npolys[0], Npolys[-1]])
     ax2 = ax1.twinx()
-    ax2.semilogy(Npolys,bics, color='C1')
-    ax2.set_ylabel("BIC")
+    ax2.semilogy(Npolys,bics, color='C1', linestyle='-', marker='s')
+    ax2.set_ylabel("Model BIC")
+    custom_lines = [
+        Line2D([0], [0], color='C0', linestyle='-', marker='o'),
+        Line2D([0], [0], color='C1', linestyle='-', marker='s')
+    ]
+    # Add the custom legend to the plot
+    plt.legend(custom_lines, [r'$\chi^2$', 'BIC'])
     fig.tight_layout()
     if savetag is not None:
         s = f"bw_chi_sq_bic_Nant<{Nant}>"
