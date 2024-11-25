@@ -486,7 +486,7 @@ def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map
     try:
         T_408, indexes = np.load(ROOT+f'/anstey/indexes_{nside}.npy')
         if const_idx:
-            indexes = -2.5*np.ones_like(indexes)
+            indexes = 2.7*np.ones_like(indexes)
             if delta is not None and err_type=='bm':
                 np.random.seed(seed)
                 T_408 = np.random.normal(loc=T_408, scale=T_408*delta)
