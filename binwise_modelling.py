@@ -18,6 +18,7 @@ import src.forward_model as FM
 import src.sky_models as SM
 import nregions_inference as NRI
 import src.inference as INF
+import src.observing as OBS
 from src.blockmat import BlockMatrix, BlockVector
 
 RS = SH.RealSphericalHarmonics()
@@ -402,7 +403,7 @@ def fg_cm21_chrom(Npoly=3, mcmc=False, chrom=None):
     plt.show()
 
 
-def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, times=None, lats=None, mcmc_pos=None, steps=3000, burn_in=1000):
+def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, savetag=None, times=None, lats=None, mcmc_pos=None, steps=3000, burn_in=1000, fidmap_HS=False):
     """
     NOTE: will NOT work if Ntau != 1.
 
@@ -414,36 +415,41 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     lmax    = 32
     Nlmax   = RS.get_size(lmax)
     if lats is None:
-        lats = np.array([-26*2, -26, 26, 26*2])#np.linspace(-80, 80, 100)#[-26]#
+        lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])#np.linspace(-80, 80, 100)#[-26]#
     if times is None:
         times = np.linspace(0, 24, 12, endpoint=False)
     Ntau  = 1
     nuarr = np.linspace(50,100,51)
-    cm21_params = [-0.2, 80.0, 5.0]
+    cm21_params = OBS.cm21_params
 
     # Generate foreground and 21-cm alm
-    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type='idx')
+    if fidmap_HS:
+        fg_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, const_idx=True)
+        print("Using Haslam-shifted foregrounds")
+    else:
+        fg_alm = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err), err_type='idx')
+        print("Using GSMA foregrounds with basemap error", basemap_err)
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
     fid_alm  = fg_alm + cm21_alm
 
     # Generate observation matrix for the observations.
-    if chrom is not None:
-        if not isinstance(chrom, bool):
-            chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
-        else:
-            chromfunc = BF.fwhm_func_tauscher
-        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=Ntau, lats=lats, times=times, return_mat=True, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
-    elif chrom is None:
+    if chrom is None:
+        # Generate observation matrix for the achromatic case.
         narrow_cosbeam = lambda x: BF.beam_cos(x, 0.8)
-        mat_A, (mat_G, mat_P, mat_Y, mat_B)  = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=True)
         mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
         mat_G = BlockMatrix(mat=mat_G, mode='block', nblock=len(nuarr))
         mat_P = BlockMatrix(mat=mat_P, mode='block', nblock=len(nuarr))
         mat_Y = BlockMatrix(mat=mat_Y, mode='block', nblock=len(nuarr))
         mat_B = BlockMatrix(mat=mat_B, mode='block', nblock=len(nuarr))
+    else:
+        # Generate observation matrix for the chromatic case.
+        chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=Ntau, lats=lats, times=times, return_mat=True, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
 
     # Perform fiducial observations without binning.
     d = mat_P @ mat_Y @ mat_B @ fid_alm
+    np.save("saves/Binwise/mat_PYB.npy", (mat_P @ mat_Y @ mat_B).matrix)
     dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], Ntau, t_int=1000/(len(lats)*len(times)))#SM.add_noise_uniform(d, 0.01)
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
@@ -458,7 +464,11 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         mat_B_ref = BlockMatrix(mat=mat_B.block[10], nblock=mat_B.nblock)
         chrom_corr_denom = mat_P @ mat_Y @ mat_B_ref @ has_alm
         chrom_corr = chrom_corr_numerator.vector/chrom_corr_denom.vector
+        np.save("saves/Binwise/chrom_corr.npy", chrom_corr)
+        np.save("saves/Binwise/dnoisy_vector.npy", dnoisy_vector)
+        np.save("saves/Binwise/noise.npy", np.sqrt(noise_covar.diag))
         dnoisy_vector /= chrom_corr
+        np.save("saves/Binwise/dnoisy_vector_corr.npy", dnoisy_vector)
     elif chrom == 'bloop':
         # Perform an EDGES-style chromaticity correction.
         # Generate alm of the Haslam-shifted sky and observe them using our beam.
@@ -471,7 +481,9 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         dnoisy_vector /= chrom_corr
 
     # Bin the noisy data and the noise.
-    dnoisy = mat_G@dnoisy
+    dnoisy = mat_G@dnoisy_vector
+    np.save("saves/Binwise/mat_G.npy", mat_G.matrix)
+
 
     noise = np.std([np.sqrt(np.diag(noise_covar.block[n])) for n in range(noise_covar.nblock)], axis=1)
     noise_covar_binned = np.diag(noise)**2
@@ -479,28 +491,24 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     
     # Set up the foreground model
     mod = FM.generate_binwise_cm21_forward_model(nuarr, mat_A, Npoly=Npoly)
+    mod_prerun = FM.generate_binwise_forward_model(nuarr, mat_A, Npoly=Npoly)
     def mod_cf(nuarr, *theta):
         theta = np.array(theta)
-        return mod(theta)
+        return mod_prerun(theta)
 
     # Try curve_fit, if it doesn't work just set res to the guess parameters.
     p0 = [10, -2.5]
     p0 += [0.01]*(Npoly-2)
-    p0 += cm21_params
     
-    try:
-        res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=noise)
-    except RuntimeError:
-        res = [np.array(p0), np.diag([1]*len(p0))]
+    res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=p0, sigma=noise)
     print("par est:", res[0])
     print("std devs:", np.sqrt(np.diag(res[1])))
-    print("chi-sq")
     
-    # Compute chi-square.
+    '''# Compute chi-square.
     residuals = dnoisy.vector - mod(res[0])
     chi_sq = residuals @ noise_covar_binned @ residuals
     chi_sq = np.sum(residuals**2/np.diag(noise_covar_binned))
-    print(f"Reduced chi square = {chi_sq/(len(dnoisy.vector)-(Npoly+3))}")
+    print(f"Reduced chi square = {chi_sq/(len(dnoisy.vector)-(Npoly+3))}")'''
 
     if mcmc:
         # create a small ball around the MLE to initialize each walker
@@ -519,10 +527,10 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
                 mcmc_pos = np.array(new_pos)
             p0 = mcmc_pos
         else:
-            p0 = res[0]
+            p0 = np.append(res[0], OBS.cm21_params)
         priors = [[1, 25], [-3.5, -1.5]]
         priors += [[-10, 10.1]]*(Npoly-2)
-        priors += [[-0.5, -0.01], [60, 90], [1, 8]]
+        priors += [[-0.5, -0.01], [60, 90], [5, 15]]
         priors = np.array(priors)
         print("MCMC PRIORS:", priors)
         
@@ -533,26 +541,6 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
                             args=(dnoisy.vector, err, mod, priors))
         _=sampler.run_mcmc(pos, nsteps=steps, progress=True, skip_initial_state_check=True)
         chain_mcmc = sampler.get_chain(flat=True, discard=burn_in)
-        theta_inferred = np.mean(chain_mcmc, axis=0)
-        '''c = ChainConsumer()
-        c.add_chain(chain_mcmc)
-        f = c.plotter.plot()
-        plt.show()'''
-
-    '''plt.plot(dnoisy.vector-mod(res[0]), '.')
-    plt.xlabel("bin")
-    plt.ylabel("data - model [K]")
-    plt.show()'''
-
-    # Provide a corner plot for the 21-cm inference.
-    # Draw samples from the likelihood.
-    chain = np.random.multivariate_normal(mean=res[0][-3:], cov=res[1][-3:,-3:], size=100000)
-    '''c = ChainConsumer()
-    c.add_chain(chain, parameters=['A', 'nu0', 'dnu'])
-    if mcmc:
-        c.add_chain(chain_mcmc[:,-3:])
-    f = c.plotter.plot()
-    plt.show()'''
 
     # Calculate the BIC for MCMC.
     bic = None
@@ -566,22 +554,21 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
         print("bic is ", bic)
 
     if savetag is not None:
-        prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>_"
+        prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>"
         if chrom is None:
-            prestr += "achrom_"
+            prestr += "_achrom"
         else:
-            prestr += "chrom<{:.1e}>_".format(chrom)
+            prestr += "_chrom<{:.1e}>".format(chrom)
         if basemap_err is not None:
-            prestr += 'bm'+f"<{basemap_err}>_"
+            prestr += '_bm'+f"<{basemap_err}>"
     
-        np.save("saves/Binwise/"+prestr+savetag+"mlChain.npy", chain)
-        np.save("saves/Binwise/"+prestr+savetag+"data.npy", dnoisy.vector)
-        np.save("saves/Binwise/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag))
+        np.save("saves/Binwise/"+prestr+savetag+"_data.npy", dnoisy.vector)
+        np.save("saves/Binwise/"+prestr+savetag+"_dataerr.npy", noise)
         if mcmc:
-            np.save("saves/Binwise/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
+            np.save("saves/Binwise/"+prestr+savetag+"_mcmcChain.npy", chain_mcmc)
         if bic is not None:
             print("saving bic")
-            np.save("saves/Binwise/"+prestr+savetag+"bic.npy", bic)
+            np.save("saves/Binwise/"+prestr+savetag+"_bic.npy", bic)
 
 '''
 def fg_cm21_chrom_corr_polych(Npoly=3, mcmc=False, chrom=None, basemap_err=0):
