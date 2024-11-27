@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 from scipy.optimize import curve_fit
 from emcee import EnsembleSampler
+from numba import jit
 
 import src.beam_functions as BF
 import src.spherical_harmonics as SH
@@ -30,15 +31,29 @@ def fg_polymod(nuarr, *theta_fg):
     fg_a00_terms = (Afg*1e3)*(nuarr/60)**(-alpha) * np.exp(np.sum(exponent, 0))
     return fg_a00_terms + np.sqrt(4*np.pi)*T_CMB
 
+@jit
+def fg_polymod_opt(nuarr, *theta_fg):
+    Afg = theta_fg[0]
+    alpha = theta_fg[1]
+    zetas = theta_fg[2:]
+    exponent = np.zeros((len(zetas), len(nuarr)))
+    for i in range(len(zetas)):
+        for j in range(len(nuarr)):
+            exponent[i, j] = zetas[i] * np.log(nuarr[j] / 60) ** (i + 2)
+    fg_a00_terms = (Afg * 1e3) * (nuarr / 60) ** (-alpha) * np.exp(np.sum(exponent, axis=0))
+    return fg_a00_terms + np.sqrt(4 * np.pi) * T_CMB
+
+@jit
 def cm21_mod(nuarr, *theta_21):
     A21, nu0, dnu = theta_21
     cm21_a00_terms = np.sqrt(4*np.pi) * A21 * np.exp(-.5*((nuarr-nu0)/dnu)**2)
     return cm21_a00_terms
 
+@jit
 def fg_cm21_polymod(nuarr, *theta):
     theta_fg = theta[:-3]
     theta_21 = theta[-3:]
-    return fg_polymod(nuarr, *theta_fg) + cm21_mod(nuarr, *theta_21)
+    return fg_polymod_opt(nuarr, *theta_fg) + cm21_mod(nuarr, *theta_21)
 
 ################################################################################
 def trivial_obs():
