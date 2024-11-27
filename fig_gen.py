@@ -714,12 +714,13 @@ def plot_binwise_chrom(Nant=7, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml
     a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
     a00std_mcmc  = np.std(a00list_mcmc, axis=0)
 
+    alm2temp = 1/np.sqrt(4*np.pi)
     fig, ax = plt.subplots(2, 1, figsize=(4,4), sharex=True, gridspec_kw={'height_ratios':[3,1]})
-    ax[0].plot(OBS.nuarr, cm21_a00, label='fiducial', linestyle=':', color='k')
+    ax[0].plot(OBS.nuarr, cm21_a00*alm2temp, label='fiducial', linestyle=':', color='k')
     ax[0].fill_between(
         OBS.nuarr,
-        a00mean_mcmc-a00std_mcmc, 
-        a00mean_mcmc+a00std_mcmc,
+        (a00mean_mcmc-a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+a00std_mcmc)*alm2temp,
         color='C1',
         alpha=0.8,
         edgecolor='none',
@@ -727,20 +728,20 @@ def plot_binwise_chrom(Nant=7, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml
     )
     ax[0].fill_between(
         OBS.nuarr,
-        a00mean_mcmc-2*a00std_mcmc, 
-        a00mean_mcmc+2*a00std_mcmc,
+        (a00mean_mcmc-2*a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+2*a00std_mcmc)*alm2temp,
         color='C1',
         alpha=0.4,
         edgecolor='none'
     )
     ax[1].set_xlabel("Frequency [MHz]")
-    ax[0].set_ylabel("21-cm a00 [K]")
+    ax[0].set_ylabel("21-cm Temperature [K]")
     ax[0].legend()
 
     mat_A_dummy = FM.generate_dummy_mat_A(OBS.nuarr, Ntau=1, lmod=32)
     mod = FM.generate_binwise_cm21_forward_model(nuarr=OBS.nuarr, observation_mat=mat_A_dummy, Npoly=Npoly)
     ax[1].axhline(y=0, linestyle=':', color='k')
-    ax[1].errorbar(OBS.nuarr, mod(np.mean(mcmcChain, axis=0))-data, dataerr, fmt='.')
+    ax[1].errorbar(OBS.nuarr, mod(np.mean(mcmcChain, axis=0))-data, dataerr, fmt='.', color='k')
     ax[1].set_ylabel(r"$T_\mathrm{res}$ [K]")
     fig.tight_layout()
     if savetag is not None:
