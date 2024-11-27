@@ -868,7 +868,7 @@ def plot_ml_chi_sq_bic_chrom_bm5(*Npolys, savetag=None):
     plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='3.4e-02', basemap_err=5, savetag=savetag)
 
 
-def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None):
+def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None):
     runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
     if chromstr is not None:
         runstr += f"_chrom<{chromstr}>"
@@ -900,9 +900,8 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     
     # Standard marginalised corner plot of the 21-cm monopole parameters.
     c = ChainConsumer()
-    #c.add_chain(mlChain, parameters=['A', 'nu0', 'dnu'])
-    c.add_chain(mcmcChain[:,-3:])
-    f = c.plotter.plot()
+    c.add_chain(mcmcChain[:,-3:], parameters=[r'$A_{21}$', r'$nu_{21}$', r'$\Delta$'])
+    f = c.plotter.plot(truth=[*OBS.cm21_params])
     plt.show()
 
     # Plot inferred signal.
@@ -935,14 +934,15 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
         alpha=0.4,
         edgecolor='none'
     )
+    ax[0].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
     ax[1].set_xlabel("Frequency [MHz]")
-    ax[0].set_ylabel("21-cm Monopole Temperature [K]")
+    ax[0].set_ylabel(r"$T_\mathrm{mon}^{21}$ [K]")
     ax[0].legend()
 
     ax[1].axhline(y=0, linestyle=':', color='k')
     ax[1].errorbar(OBS.nuarr, (rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp, a00_error*alm2temp, fmt='.', color='k')
     ax[1].axhline(0, linestyle=':', color='k')
-    ax[1].set_ylabel("Temperature\nresiduals [K]")
+    ax[1].set_ylabel(r"$\hat{T}_\mathrm{mon}-\mathcal{M}$ [K]")
     fig.tight_layout()
     if savetag is not None:
         plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+".pdf")
@@ -951,7 +951,7 @@ def plot_ml_chrom(Nant=4, Npoly=7, chromstr=None, basemap_err=None, savetag=None
 
     plt.errorbar(OBS.nuarr, (fid_a00-rec_a00)*alm2temp, a00_error*alm2temp, fmt='.')
     plt.xlabel("Frequency [MHz]")
-    plt.ylabel("Inferred $T_\mathrm{mon}$ residuals [K]")
+    plt.ylabel(r"$T_\mathrm{mon} - \hat{T}_\mathrm{mon}$ [K]")
     if savetag is not None:
         plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_inferred_Tmon_res.pdf")
         plt.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_inferred_Tmon_res.png")
