@@ -582,6 +582,7 @@ def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None, savetag=Non
     startpos = None#np.array(pars)
     fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=10000, burn_in=5000, fidmap_HS=False)
 
+# Achromatic, no basemap error.
 def run_set_gen_binwise_chrom0_bm0(*Npolys, savetag=''):
     for Npoly in Npolys:
         gen_binwise_chrom(Nant=7, Npoly=Npoly, chrom=None, basemap_err=None, savetag=savetag)
@@ -590,6 +591,7 @@ def plot_set_binwise_chrom0_bm0(*Npolys, savetag=''):
     for Npoly in Npolys:
         plot_binwise_chrom(Nant=7, Npoly=Npoly, chromstr=None, basemap_err=None, savetag=savetag)
 
+# c=0 chromaticity, no basemap error.
 def run_set_gen_binwise_chromflat_bm0(*Npolys):
     for Npoly in Npolys:
         gen_binwise_chrom(Nant=7, Npoly=Npoly, chrom=0, basemap_err=None, savetag='')
@@ -598,6 +600,7 @@ def plot_set_binwise_chromflat_bm0(*Npolys):
     for Npoly in Npolys:
         plot_binwise_chrom(Nant=7, Npoly=Npoly, chromstr='0.0e+00', basemap_err=None)
 
+# 1.6e-2 chromaticity, no basemap error.
 def run_set_gen_binwise_chromsmall_bm0(*Npolys, savetag=''):
     for Npoly in Npolys:
         gen_binwise_chrom(Nant=7, Npoly=Npoly, chrom=1.6e-2, basemap_err=None, savetag=savetag)
@@ -609,17 +612,7 @@ def plot_set_binwise_chromsmall_bm0(*Npolys, savetag=''):
 def plot_binwise_chi_sq_bic_chromsmall_bm0(*Npolys, savetag=None):
     plot_binwise_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='1.6e-02', basemap_err=None, savetag=savetag)
 
-def run_set_gen_binwise_chrommed_bm0(*Npolys):
-    for Npoly in Npolys:
-        gen_binwise_chrom(Nant=7, Npoly=Npoly, chrom=2.4e-2, basemap_err=None, savetag='')
-
-def plot_set_binwise_chrommed_bm0(*Npolys):
-    for Npoly in Npolys:
-        plot_binwise_chrom(Nant=7, Npoly=Npoly, chromstr='2.4e-02', basemap_err=None)
-
-def plot_binwise_chi_sq_bic_chrommed_bm0(savetag=None):
-    plot_binwise_chi_sq_bic(Nant=7, Npolys=[9, 10, 11], chromstr='2.4e-02', basemap_err=None, savetag=savetag)
-
+# 3.4e-2 chromaticity, no basemap error.
 def run_set_gen_binwise_chrom_bm0(*Npolys, savetag=''):
     for Npoly in Npolys:
         gen_binwise_chrom(Nant=7, Npoly=Npoly, chrom=3.4e-2, basemap_err=None, savetag=savetag)
@@ -628,19 +621,9 @@ def plot_set_binwise_chrom_bm0(*Npolys, savetag=None):
     for Npoly in Npolys:
         plot_binwise_chrom(Nant=4, Npoly=Npoly, chromstr='3.4e-02', basemap_err=None, savetag=savetag)
 
-def plot_binwise_chi_sq_bic_chrom_bm0(savetag=None):
-    plot_binwise_chi_sq_bic(Nant=7, Npolys=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], chromstr='3.4e-02', basemap_err=None, savetag=savetag)
+def plot_binwise_chi_sq_bic_chrom_bm0(*Npolys, savetag=None):
+    plot_binwise_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='3.4e-02', basemap_err=None, savetag=savetag)
 
-def run_set_gen_binwise_chrom_bm0_onepoint(*Npolys):
-    for Npoly in Npolys:
-        gen_binwise_chrom(Nant=7, Npoly=Npoly, chrom=3.4e-2, basemap_err=None, savetag='onepoint')
-
-def plot_set_binwise_chrom_bm0_onepoint(*Npolys):
-    for Npoly in Npolys:
-        plot_binwise_chrom(Nant=7, Npoly=Npoly, chromstr='3.4e-02', basemap_err=None, savetag='onepoint')
-
-def plot_binwise_chi_sq_bic_chrom_bm0_onepoint():
-    plot_binwise_chi_sq_bic(Nant=7, Npolys=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], chromstr='3.4e-02', basemap_err=None, savetag='onepoint')
 
 def plot_binwise_chrom(Nant=7, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml_plots=False, savetag=None):
     if ml_plots:
