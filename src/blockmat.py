@@ -248,7 +248,7 @@ class BlockMatrix:
         if self.block_shape[0] != self.block_shape[1]:
             raise ValueError("inverse of non-square matrix is undefined.")
         if self._trivial:
-            new_block = np.linalg.inv(block)
+            new_block = np.linalg.inv(self._matrix[0])
             new_mat = [new_block for _ in range(self.nblock)]
         else:
             new_mat = []
