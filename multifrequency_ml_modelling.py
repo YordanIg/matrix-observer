@@ -340,12 +340,11 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         else:
             chromfunc = BF.fwhm_func_tauscher
         mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
-        mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmod, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+        mat_A_mod = mat_A[:,:Nlmod]
     elif chrom is None:
         mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
         mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
-        mat_A_mod = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmod, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
-        mat_A_mod = BlockMatrix(mat=mat_A_mod, mode='block', nblock=len(nuarr))
+        mat_A_mod = mat_A[:,:Nlmod]
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
