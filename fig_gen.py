@@ -854,10 +854,10 @@ def run_set_gen_ml_chromflat_bm0(*Npolys):
 
 def plot_set_ml_chromflat_bm0(*Npolys, savetag=None):
     for Npoly in Npolys:
-        plot_ml_chrom(Nant=7, Npoly=Npoly, chromstr='0.0e-02', basemap_err=0, savetag=savetag)
+        plot_ml_chrom(Nant=7, Npoly=Npoly, chromstr='0.0e+00', basemap_err=0, savetag=savetag)
     
 def plot_ml_chi_sq_bic_chromflat_bm0(*Npolys, savetag=None):
-    plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='0.0e-02', basemap_err=0, savetag=savetag)
+    plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='0.0e+00', basemap_err=0, savetag=savetag)
 
 # 1.6e-2 chromaticity, no basemap error.
 def run_set_gen_ml_chromsmall_bm0(*Npolys):
