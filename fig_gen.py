@@ -42,10 +42,10 @@ ant_LUT = {
 def gen_lmod_investigation():
     def calc_d_vec(lmod=32, nside=64):
         npix    = hp.nside2npix(nside)
-        lats = np.array([-26])
-        times = np.linspace(0, 24, 3, endpoint=False)
-        nuarr   = np.linspace(50,100,51)
-        narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
+        lats  = ant_LUT[7]
+        times = np.linspace(0, 24, 12, endpoint=False)
+        nuarr   = np.array([70])
+        narrow_cosbeam  = lambda x: BF.beam_cos_FWHM(x, FWHM=np.radians(60))
         
         # Generate foreground alm
         fg_alm_mod = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmod, nside=nside, use_mat_Y=True)
@@ -80,29 +80,36 @@ def plot_lmod_nside_investigation():
     xx = list(range(len(d_list)-1))
     yy = [np.std(d_list[i]-d_list[i+1]) for i in range(len(d_list)-1)]
 
-    fig, ax = plt.subplots(1, 2, figsize=(6, 3))
-    ax[0].loglog(pars[:-1],yy, '.')
+    fig, ax = plt.subplots(1, 2, figsize=(6.5, 3))
+    ax[0].loglog(pars[:-1],yy)
     ax[0].set_xticks(ticks=[], labels=[], minor=True)
     ax[0].set_xticks(ticks=pars[:-1], labels=pars[:-1], minor=False)
+    ax[0].axhline(y=0.1, linestyle=':', color='k')
+    ax[0].text(x=2.5,y=0.1*1.1, s="21-cm signal scale")
+    ax[0].set_xlim(pars[0], pars[-2])
+    ax[0].set_ylim(yy[-1], yy[0])
     ax[0].set_ylabel("RMS residual temperature [K]")
-    ax[0].set_xlabel(r"$l_\mathrm{mod}$")
+    ax[0].set_xlabel(r"$l_\mathrm{max}$")
 
     NSIDEs = [2, 4, 8, 16, 32, 64, 128]
     ELLs   = [32, 64]
     rads_NSIDE = [np.sqrt(4*np.pi / (12*NSIDE**2)) for NSIDE in NSIDEs]
     rads_ELL = [2*np.pi/(2*ELL) for ELL in ELLs]
-    ax[1].loglog(NSIDEs, rads_NSIDE, '.')
-    sty = [':', '-.']
+    ax[1].loglog(NSIDEs, np.degrees(rads_NSIDE))
+    sty = ['--', '-.']
     for ELL, rads, s in zip(ELLs, rads_ELL, sty):
-        ax[1].axhline(y=rads, linestyle=s, label="l="+str(ELL), color='k')
-    ax[1].legend()
+        ax[1].axhline(y=np.degrees(rads), linestyle=s, color='k')
+        ax[1].text(x=64, y=np.degrees(rads)*1.05, s="$l=$"+str(ELL), horizontalalignment='center')
     ax[1].set_xticks(ticks=[], labels=[], minor=True)
     ax[1].set_xticks(ticks=NSIDEs, labels=NSIDEs, minor=False)
+    ax[1].set_xlim(NSIDEs[0], NSIDEs[-1])
+    ax[1].set_ylim(np.degrees(rads_NSIDE[-1]), np.degrees(rads_NSIDE[0]))
     ax[1].set_xlabel("NSIDE")
-    ax[1].set_ylabel("Approx pixel width [rad]")
+    ax[1].set_ylabel("Approx pixel width [deg]")
     fig.tight_layout()
     plt.savefig("fig/lmod_nside_investigation.png")
     plt.savefig("fig/lmod_nside_investigation.pdf")
+    plt.show()
 
 ################################################################################
 # Basemap error figure.
