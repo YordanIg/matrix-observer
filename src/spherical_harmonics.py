@@ -264,7 +264,8 @@ def calc_inv_spherical_harmonic_matrix(nside=8, lmax=20, verbose=True):
     #So then the matrix for the spherical harmonics
     npix = healpy.pixelfunc.nside2npix(nside)
     nalm = healpy.Alm.getsize(lmax)
-    print(npix, nalm)
+    if verbose:
+        print(npix, nalm)
 
     #inverse matrix for Y is really just a rescaled version of Y.T
     Y = calc_spherical_harmonic_matrix(nside=nside, lmax=lmax, verbose=verbose)
