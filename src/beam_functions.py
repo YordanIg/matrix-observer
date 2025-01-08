@@ -93,7 +93,9 @@ def calc_blm(nside, lmax, beam_use=beam_cos, norm_flag=True):
     """
     #calculate the map and transform it to get the blm
     map_raw = beam_map(nside, beam_use, norm_flag)
-    blm = healpy.sphtfunc.map2alm(map_raw, lmax=lmax, use_weights=False)
+    #blm = healpy.sphtfunc.map2alm(map_raw, lmax=lmax, use_weights=False)
+    blm_real = SH.calc_inv_spherical_harmonic_matrix(nside, lmax, verbose=False) @ map_raw
+    blm = SH.RealSphericalHarmonics().real2ComplexALM(blm_real)
 
     #Make a clean beam map with no off diagonals to test reconstruction
     blm_clean = np.zeros(blm.shape,dtype=np.complex128)
