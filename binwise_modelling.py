@@ -530,7 +530,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
             p0 = np.append(res[0], OBS.cm21_params)
         priors = [[1, 25], [-3.5, -1.5]]
         priors += [[-10, 10.1]]*(Npoly-2)
-        priors += [[-0.5, -0.01], [60, 90], [5, 15]]
+        priors += [[-2, -0.001], [60, 90], [5, 15]]
         priors = np.array(priors)
         print("MCMC PRIORS:", priors)
         
