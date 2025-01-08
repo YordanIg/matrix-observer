@@ -252,14 +252,19 @@ def plot_fwhm():
     for a range of values of the chromaticity parameter c.
     """
     nu = np.linspace(50, 100, 100)
-    fig, ax = plt.subplots()
-    c_values = [8.0e-3, 1.6e-2, 2.4e-2, 3.4e-2]
-    for c in c_values:
-        ax.plot(nu, np.degrees(BF.fwhm_func_tauscher(nu, c)), label=f"c={c:.1e}")
+    fig, ax = plt.subplots(figsize=(4.2, 3.5))
+    c_values = [0, 1.6e-2, 3.4e-2]
+    lss = [':', '--', '-.']
+    for c, ls in zip(c_values, lss):
+        ax.plot(nu, np.degrees(BF.fwhm_func_tauscher(nu, c)), linestyle=ls)#, label=f"c={c:.1e}")
+    ax.axhline(y=72, linestyle='-', color='k')
+    ax.text(x=60, y=72.2, s="achromatic")
+    ax.text(x=62.9, y=65.8, s="0.0e-02", rotation=33)
+    ax.text(x=65.8, y=62.5, s="1.6e-02", rotation=28)
+    ax.text(x=69.5, y=58.1, s="3.4e-02", rotation=30)
     
     ax.set_xlabel("Frequency [MHz]")
     ax.set_ylabel("Beam FWHM [deg]")
-    ax.legend()
     
     # Adjust x and y limits
     ax.set_xlim([50, 100])
