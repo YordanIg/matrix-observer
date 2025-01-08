@@ -592,7 +592,7 @@ def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None, savetag=Non
     pars = [elt[1] for elt in c.analysis.get_summary().values()]
     pars = pars[:10]
     startpos = None#np.array(pars)
-    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=10000, burn_in=5000, fidmap_HS=False)
+    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=100000, burn_in=75000, fidmap_HS=False)
 
 # Achromatic, no basemap error.
 def run_set_gen_binwise_chrom0_bm0(*Npolys, savetag=''):
@@ -773,6 +773,7 @@ def plot_binwise_chrom(Nant=7, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml
     )
     ax[1].set_xlabel("Frequency [MHz]")
     ax[0].set_ylabel("21-cm Temperature [K]")
+    ax[0].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
     ax[0].legend()
 
     mat_A_dummy = FM.generate_dummy_mat_A(OBS.nuarr, Ntau=1, lmod=32)
@@ -790,6 +791,129 @@ def plot_binwise_chrom(Nant=7, Npoly=7, chromstr='3.4e-02', basemap_err=None, ml
     chi_sq = np.sum((a00mean_mcmc - cm21_a00)**2 / a00std_mcmc**2)
     print("monopole chi-sq", chi_sq)
     np.save('saves/Binwise/'+runstr+'_chi_sq.npy', chi_sq)
+
+def plot_binwise_chrom_pair(Nant=7, Npolys=(5,6), chromstr='1.6e-02', basemap_err=None, savetag=None):
+    runstrs    = [f"Nant<{Nant}>_Npoly<{Npoly}>" for Npoly in Npolys]
+    savestr    = f"Nant<{Nant}>_Npoly<{Npolys[0]}><{Npolys[1]}>"
+    if chromstr is not None:
+        runstrs[0] += f"_chrom<{chromstr}>"
+        runstrs[1] += f"_chrom<{chromstr}>"
+        savestr    += f"_chrom<{chromstr}>"
+    else:
+        runstrs[0] += f"_achrom"
+        runstrs[1] += f"_achrom"
+        savestr    += f"_achrom"
+    if basemap_err is not None:
+        runstrs[0] += f"_bm<{basemap_err}>"
+        runstrs[1] += f"_bm<{basemap_err}>"
+        savestr   += f"_bm<{basemap_err}>"
+    if savetag is not None:
+        runstrs[0] += savetag
+        runstrs[1] += savetag
+        savestr    += savetag
+    print("loading from", runstrs)
+    mcmcChains = [np.load('saves/Binwise/'+runstr+'_mcmcChain.npy') for runstr in runstrs]
+    datas      = [np.load('saves/Binwise/'+runstr+'_data.npy') for runstr in runstrs]
+    dataerrs   = [np.load('saves/Binwise/'+runstr+'_dataerr.npy') for runstr in runstrs]
+
+    # Plot inferred signal.
+    cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
+    cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
+
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChains[0]))), size=1000)
+    samples_mcmcChain = mcmcChains[0][idx_mcmcChain]
+    samples_mcmcChain = samples_mcmcChain[:,-3:]
+    a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
+    a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
+    a00std_mcmc  = np.std(a00list_mcmc, axis=0)
+
+    fig, ax = plt.subplots(2, 2, figsize=(5,3), sharex=True, gridspec_kw={'height_ratios':[3,1]})
+    ax[0,0].plot(OBS.nuarr, cm21_a00*alm2temp, label='fiducial', linestyle=':', color='k')
+    ax[0,0].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    ax[0,0].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-2*a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+2*a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    ax[1,0].set_xlabel("Frequency [MHz]")
+    ax[0,0].set_ylabel("21-cm Temperature [K]")
+    ax[0,0].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
+    ax[0,0].legend(loc='lower right')
+    top_plot_spacing = 0.02
+    ax00_ymax = np.max(a00mean_mcmc+2*a00std_mcmc)*alm2temp + top_plot_spacing
+    ax00_ymin = np.min(a00mean_mcmc-2*a00std_mcmc)*alm2temp - top_plot_spacing
+
+    mat_A_dummy = FM.generate_dummy_mat_A(OBS.nuarr, Ntau=1, lmod=32)
+    mod = FM.generate_binwise_cm21_forward_model(nuarr=OBS.nuarr, observation_mat=mat_A_dummy, Npoly=Npolys[0])
+    ax[1,0].axhline(y=0, linestyle=':', color='k')
+    ax[1,0].errorbar(OBS.nuarr, mod(np.mean(mcmcChains[0], axis=0))-datas[0], dataerrs[0], fmt='.', color='k', ms=2)
+    ax[1,0].set_ylabel(r"$T_\mathrm{res}$ [K]")
+    bottom_plot_spacing = 0.01
+    ax10_ymax = np.max(mod(np.mean(mcmcChains[0], axis=0))-datas[0]) + bottom_plot_spacing
+    ax10_ymin = np.min(mod(np.mean(mcmcChains[0], axis=0))-datas[0]) - bottom_plot_spacing
+
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChains[1]))), size=1000)
+    samples_mcmcChain = mcmcChains[1][idx_mcmcChain]
+    samples_mcmcChain = samples_mcmcChain[:,-3:]
+    a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
+    a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
+    a00std_mcmc  = np.std(a00list_mcmc, axis=0)
+
+    ax[0,1].plot(OBS.nuarr, cm21_a00*alm2temp, linestyle=':', color='k')
+    ax[0,1].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none'
+    )
+    ax[0,1].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-2*a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+2*a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    ax[1,1].set_xlabel("Frequency [MHz]")
+    ax[0,1].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
+    top_plot_spacing = 0.02
+    ax01_ymax = np.max(a00mean_mcmc+2*a00std_mcmc)*alm2temp + top_plot_spacing
+    ax01_ymin = np.min(a00mean_mcmc-2*a00std_mcmc)*alm2temp - top_plot_spacing
+
+    mat_A_dummy = FM.generate_dummy_mat_A(OBS.nuarr, Ntau=1, lmod=32)
+    mod = FM.generate_binwise_cm21_forward_model(nuarr=OBS.nuarr, observation_mat=mat_A_dummy, Npoly=Npolys[1])
+    ax[1,1].axhline(y=0, linestyle=':', color='k')
+    ax[1,1].errorbar(OBS.nuarr, mod(np.mean(mcmcChains[1], axis=0))-datas[1], dataerrs[1], fmt='.', color='k', ms=2)
+    ax11_ymax = np.max(mod(np.mean(mcmcChains[1], axis=0))-datas[1]) + bottom_plot_spacing
+    ax11_ymin = np.min(mod(np.mean(mcmcChains[1], axis=0))-datas[1]) - bottom_plot_spacing
+
+    ax[0,0].set_ylim([min(ax00_ymin, ax01_ymin), max(ax00_ymax, ax01_ymax)])
+    ax[0,1].set_ylim([min(ax00_ymin, ax01_ymin), max(ax00_ymax, ax01_ymax)])
+    ax[1,0].set_ylim([min(ax10_ymin, ax11_ymin), max(ax10_ymax, ax11_ymax)])
+    ax[1,1].set_ylim([min(ax10_ymin, ax11_ymin), max(ax10_ymax, ax11_ymax)])
+
+    # Turn off the y axis ticklabels for the right plots.
+    ax[0,1].set_yticklabels([])
+    ax[1,1].set_yticklabels([])
+
+    fig.tight_layout()
+    if savetag is not None:
+        plt.savefig(f"fig/Binwise/bw_"+savestr+savetag+".pdf")
+        plt.savefig(f"fig/Binwise/bw_"+savestr+savetag+".png")
+    plt.show()
 
 def plot_binwise_chi_sq_bic(Nant=7, Npolys=[], chromstr='3.4e-02', basemap_err=None, savetag=None):
     runstrs = []
