@@ -178,7 +178,7 @@ class RealSphericalHarmonics:
         return result_flag
 
 
-def calc_spherical_harmonic_matrix(nside=8, lmax=20, try_loading=True):
+def calc_spherical_harmonic_matrix(nside=8, lmax=20, try_loading=True, verbose=True):
     """
     construct the matrix for the spherical harmonics
     Y_ij = Y_{l_jm_j}(r_i)
@@ -201,11 +201,13 @@ def calc_spherical_harmonic_matrix(nside=8, lmax=20, try_loading=True):
     if try_loading:
         try:
             mat_Y = np.load(f"saves/ylm_mat_nside{nside}_lmax{lmax}.npy")
-            print("successfully loaded spherical_harmonic_matrix npix, nalm :", npix, nalm)
+            if verbose:
+                print("successfully loaded spherical_harmonic_matrix npix, nalm :", npix, nalm)
             return mat_Y
         except:
             save_mat = True
-    print("calc_spherical_harmonic_matrix npix, nalm :", npix, nalm)
+    if verbose:
+        print("calc_spherical_harmonic_matrix npix, nalm :", npix, nalm)
 
     # Construct the complex version of the Ylm
     Y_matrix_real = np.zeros((npix, nalm))
@@ -245,7 +247,7 @@ def calc_spherical_harmonic_matrix(nside=8, lmax=20, try_loading=True):
     return Y_real
 
 
-def calc_inv_spherical_harmonic_matrix(nside=8, lmax=20):
+def calc_inv_spherical_harmonic_matrix(nside=8, lmax=20, verbose=True):
     """
     construct the inverse matrix for the spherical harmonics
     Y_ij = Y_{l_jm_j}^*(r_i)
@@ -265,7 +267,7 @@ def calc_inv_spherical_harmonic_matrix(nside=8, lmax=20):
     print(npix, nalm)
 
     #inverse matrix for Y is really just a rescaled version of Y.T
-    Y = calc_spherical_harmonic_matrix(nside=nside, lmax=lmax)
+    Y = calc_spherical_harmonic_matrix(nside=nside, lmax=lmax, verbose=verbose)
     invY = Y.T * (4*np.pi) / npix
 
     return invY
