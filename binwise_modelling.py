@@ -450,7 +450,7 @@ def fg_cm21_chrom_corr(Npoly=3, mcmc=False, chrom=None, basemap_err=None, saveta
     # Perform fiducial observations without binning.
     d = mat_P @ mat_Y @ mat_B @ fid_alm
     np.save("saves/Binwise/mat_PYB.npy", (mat_P @ mat_Y @ mat_B).matrix)
-    dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], Ntau, t_int=1000/(len(lats)*len(times)))#SM.add_noise_uniform(d, 0.01)
+    dnoisy, noise_covar = SM.add_noise(d, nuarr[1]-nuarr[0], len(times), t_int=200) # Ntau NOTE: using len(times) here because we keep the data unbinned to apply the chromaticity correction. Noise is recomputed later.
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
