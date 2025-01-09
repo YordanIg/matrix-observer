@@ -348,7 +348,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     
     # Perform fiducial observations
     d = mat_A @ fid_alm
-    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=500, seed=456)#t_int=100, seed=456)#
+    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=200, seed=456)#t_int=100, seed=456)#
     sample_noise = np.sqrt(noise_covar.block[0][0,0])
     print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
 
