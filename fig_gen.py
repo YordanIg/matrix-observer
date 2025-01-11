@@ -1070,6 +1070,30 @@ def plot_set_ml_chrom_bm5(*Npolys, savetag=None):
 def plot_ml_chi_sq_bic_chrom_bm5(*Npolys, savetag=None):
     plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='3.4e-02', basemap_err=5, savetag=savetag)
 
+# 1.6e-2 chromaticity, 10% basemap error.
+def run_set_gen_ml_chromsmall_bm10(*Npolys):
+    for Npoly in Npolys:
+        gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=1.6e-2, basemap_err=10)
+
+def plot_set_ml_chromsmall_bm10(*Npolys, savetag=None):
+    for Npoly in Npolys:
+        plot_ml_chrom(Nant=7, Npoly=Npoly, chromstr='1.6e-02', basemap_err=10, savetag=savetag)
+
+def plot_ml_chi_sq_bic_chromsmall_bm10(*Npolys, savetag=None):
+    plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='1.6e-02', basemap_err=10, savetag=savetag)
+
+# 3.4e-2 chromaticity, 10% basemap error.
+def run_set_gen_ml_chrom_bm10(*Npolys):
+    for Npoly in Npolys:
+        gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=3.4e-2, basemap_err=10)
+
+def plot_set_ml_chrom_bm10(*Npolys, savetag=None):
+    for Npoly in Npolys:
+        plot_ml_chrom(Nant=7, Npoly=Npoly, chromstr='3.4e-02', basemap_err=10, savetag=savetag)
+
+def plot_ml_chi_sq_bic_chrom_bm10(*Npolys, savetag=None):
+    plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='3.4e-02', basemap_err=10, savetag=savetag)
+
 
 def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None):
     runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
