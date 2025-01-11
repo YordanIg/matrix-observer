@@ -1139,7 +1139,7 @@ def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     )
     ax[0].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
     ax[1].set_xlabel("Frequency [MHz]")
-    ax[0].set_ylabel(r"$T_\mathrm{mon}^{21}$ [K]")
+    ax[0].set_ylabel(r"21-cm Temperature [K]")
     ax[0].legend()
 
     ax[1].axhline(y=0, linestyle=':', color='k')
