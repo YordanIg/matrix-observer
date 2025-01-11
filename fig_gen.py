@@ -972,7 +972,7 @@ def plot_binwise_chi_sq_bic(Nant=7, Npolys=[], chromstr='3.4e-02', basemap_err=N
 ################################################################################
 def gen_ml_chrom(Nant=4, Npoly=6, chrom=None, basemap_err=None):
     startpos = None#np.append(np.mean(np.load('saves/MLmod/Nant<4>_Npoly<8>_chrom<6.0e-02>_idx<0.0851>_mcmcChain.npy'), axis=0)[:Npoly], OBS.cm21_params)
-    nontrivial_obs_memopt_missing_modes(Npoly=Npoly, lats=ant_LUT[Nant], chrom=chrom, basemap_err=basemap_err, err_type='idx', mcmc=True, mcmc_pos=startpos, steps=40000, burn_in=13000, plotml=False)
+    nontrivial_obs_memopt_missing_modes(Npoly=Npoly, lats=ant_LUT[Nant], chrom=chrom, basemap_err=basemap_err, err_type='idx', mcmc=True, mcmc_pos=startpos, steps=100000, burn_in=60000, plotml=False)
 
 # Achromatic, no basemap error.
 def run_set_gen_ml_chrom0_bm0(*Npolys):
