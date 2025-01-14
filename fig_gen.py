@@ -1318,6 +1318,24 @@ def run_all_ml():
     run_set_gen_ml_chromsmall_bm10(3,4,5,6,7)
     run_set_gen_ml_chrom_bm10(3,4,5,6,7)
 
+def plot_all_ml():
+    """
+    Batch plot all run_set_gen_ml functions in the script for Npoly=3, ..., 7.
+    """
+    plot_set_ml_chrom0_bm5(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chrom0_bm5(3,4,5,6,7,savetag='')
+    plot_set_ml_chromsmall_bm5(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chromsmall_bm5(3,4,5,6,7,savetag='')
+    plot_set_ml_chrom_bm5(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chrom_bm5(3,4,5,6,7,savetag='')
+
+    plot_set_ml_chrom0_bm10(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chrom0_bm10(3,4,5,6,7,savetag='')
+    plot_set_ml_chromsmall_bm10(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chromsmall_bm10(3,4,5,6,7,savetag='')
+    plot_set_ml_chrom_bm10(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chrom_bm10(3,4,5,6,7,savetag='')
+
 def run_all_binwise():
     """
     Batch run all run_set_gen_binwise functions in the script for Npoly=3, ..., 7.
