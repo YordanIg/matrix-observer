@@ -20,6 +20,7 @@ import src.beam_functions as BF
 import src.forward_model as FM
 from src.blockmat import BlockMatrix
 from src.spherical_harmonics import RealSphericalHarmonics, calc_spherical_harmonic_matrix
+from anstey.generate import T_CMB
 RS = RealSphericalHarmonics()
 
 from binwise_modelling import fg_cm21_chrom_corr
@@ -275,6 +276,63 @@ def plot_fwhm():
     
     fig.tight_layout()
     plt.savefig("fig/fwhm.pdf")
+    plt.show()
+
+################################################################################
+# 
+################################################################################
+def plot_basemap_errs():
+    nuarr = OBS.nuarr
+    delta_5  = SM.basemap_err_to_delta(5, ref_freq=70)
+    delta_10 = SM.basemap_err_to_delta(10, ref_freq=70)
+    delta_15 = SM.basemap_err_to_delta(15, ref_freq=70)
+    percentage_err_5  = (nuarr/408)**(-delta_5) - 1
+    percentage_err_10 = (nuarr/408)**(-delta_10) - 1
+    percentage_err_15 = (nuarr/408)**(-delta_15) - 1
+
+    select_freqs = np.array([60,75,90])
+    gsma  = SM.foreground_gsma_nsidelo(nu=select_freqs, nside=32)
+    _, err_5 = SM.foreground_gsma_alm_nsidelo(nu=select_freqs, lmax=32, nside=32, original_map=True, delta=delta_5)
+    _, err_10 = SM.foreground_gsma_alm_nsidelo(nu=select_freqs, lmax=32, nside=32, original_map=True, delta=delta_10)
+    _, err_15 = SM.foreground_gsma_alm_nsidelo(nu=select_freqs, lmax=32, nside=32, original_map=True, delta=delta_15)
+    err_mean_5 = []
+    for nu, gsma_map in zip(select_freqs, gsma):
+        sigma_T   = delta_5 * np.log(408/nu)
+        temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
+        err_mean_5.append(temp_mean_block)
+
+    err_mean_10 = []
+    for nu, gsma_map in zip(select_freqs, gsma):
+        sigma_T   = delta_10 * np.log(408/nu)
+        temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
+        err_mean_10.append(temp_mean_block)
+
+    err_mean_15 = []
+    for nu, gsma_map in zip(select_freqs, gsma):
+        sigma_T   = delta_15 * np.log(408/nu)
+        temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
+        err_mean_15.append(temp_mean_block)
+
+    fig, ax = plt.subplots(1, 2, figsize=(6,2.8))
+    ax[0].plot(nuarr, 1e2*percentage_err_5, label='5%')
+    ax[0].plot(nuarr, 1e2*percentage_err_10, label='10%')
+    ax[0].plot(nuarr, 1e2*percentage_err_15, label='15%')
+    ax[0].set_xlabel("Frequency [MHz]")
+    ax[0].set_ylabel("Approximate Basemap Error [%]")
+    ax[0].set_xlim(nuarr[0], nuarr[-1])
+    ax[0].set_ylim(0, 1e2*np.max(percentage_err_15))
+
+    bins = np.linspace(-50,50,41)
+    ax[1].hist(1e2*(err_mean_15[0]-err_15[0])/err_mean_15[0], bins=bins, ec='k', alpha=0.6, color='C2', label=' 15%')
+    ax[1].hist(1e2*(err_mean_10[0]-err_10[0])/err_mean_10[0], bins=bins, ec='k', alpha=0.6, color='C1', label=' 10%')
+    ax[1].hist(1e2*(err_mean_5[0]-err_5[0])/err_mean_5[0], bins=bins, ec='k', alpha=0.6, color='C0', label=' 5%')
+    ax[1].set_xlim(-50,50)
+    ax[1].set_xlabel("Pixel Temperature Deviation [%]")
+    ax[1].set_ylabel("Count")
+    ax[1].legend()
+    fig.tight_layout()
+    plt.savefig("fig/basemap_errs.pdf")
+    plt.savefig("fig/basemap_errs.png")
     plt.show()
 
 
