@@ -431,14 +431,14 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 nside=nside, map=map)
 
-def basemap_err_to_delta(percent_err):
+def basemap_err_to_delta(percent_err, ref_freq=230):
     """
     Roughly calculate the delta error in GSMA power law index required for a 
     given basemap error, taking the basemap error AS A PERCENTAGE.
     """
     if percent_err is None:
         return None
-    return np.log(percent_err*1e-2 + 1) / np.log(408/230)
+    return np.log(percent_err*1e-2 + 1) / np.log(408/ref_freq)
 
 def foreground_gsma_alm_nsidelo(nu, lmax=32, nside=None, map=False, original_map=False, use_mat_Y=False, const_idx=False, delta=None, err_type='idx', seed=123, meancorr=False):
     '''
@@ -536,7 +536,7 @@ def haslam_scaled_map(nu, nside=None):
     return hl_map
 
 
-def gsma_corr(lmod, lmax, nside, nuarr, bmerr):
+def gsma_corr(lmod, lmax, nside, nuarr, bmerr, ref_freq=230):
     """
     Compute and return the GSMA error instance alm mean correction and covariance
     matrix, truncated as requested. Will first check to see if the relevant 
@@ -559,7 +559,7 @@ def gsma_corr(lmod, lmax, nside, nuarr, bmerr):
             print(s.format(nside, lmax, bmerr))
 
             gsma_maps = SM.foreground_gsma_nsidelo(nu=nuarr, nside=nside)
-            delta = SM.basemap_err_to_delta(percent_err=bmerr)
+            delta = SM.basemap_err_to_delta(percent_err=bmerr, ref_freq=ref_freq)
 
             temp_cov_blocks = []
             temp_mean_blocks = []
