@@ -282,10 +282,12 @@ def plot_fwhm():
 # 
 ################################################################################
 def plot_basemap_errs():
+    def simp_basemap_err_to_delta(bmerr, ref_freq=70):
+        return (bmerr/100)/np.log(408/ref_freq)
     nuarr = OBS.nuarr
-    delta_5  = SM.basemap_err_to_delta(5, ref_freq=70)
-    delta_10 = SM.basemap_err_to_delta(10, ref_freq=70)
-    delta_15 = SM.basemap_err_to_delta(15, ref_freq=70)
+    delta_5  = simp_basemap_err_to_delta(5, ref_freq=70)
+    delta_10 = simp_basemap_err_to_delta(10, ref_freq=70)
+    delta_15 = simp_basemap_err_to_delta(15, ref_freq=70)
     percentage_err_5  = (nuarr/408)**(-delta_5) - 1
     percentage_err_10 = (nuarr/408)**(-delta_10) - 1
     percentage_err_15 = (nuarr/408)**(-delta_15) - 1
