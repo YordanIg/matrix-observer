@@ -1201,6 +1201,8 @@ def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     c = ChainConsumer()
     c.add_chain(mcmcChain[:,-3:], parameters=[r'$A_{21}$', r'$nu_{21}$', r'$\Delta$'])
     f = c.plotter.plot(truth=[*OBS.cm21_params])
+    f.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_corner.pdf")
+    f.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_corner.png")
     plt.show()
 
     # Plot inferred signal.
@@ -1312,6 +1314,10 @@ def run_all_ml():
     """
     Batch run all run_set_gen_ml functions in the script for Npoly=3, ..., 7.
     """
+    run_set_gen_ml_chrom0_bm0(3,4,5,6,7)
+    run_set_gen_ml_chromsmall_bm0(3,4,5,6,7)
+    run_set_gen_ml_chrom_bm0(3,4,5,6,7)
+
     run_set_gen_ml_chrom0_bm5(3,4,5,6,7)
     run_set_gen_ml_chromsmall_bm5(3,4,5,6,7)
     run_set_gen_ml_chrom_bm5(3,4,5,6,7)
@@ -1324,6 +1330,14 @@ def plot_all_ml():
     """
     Batch plot all run_set_gen_ml functions in the script for Npoly=3, ..., 7.
     """
+
+    plot_set_ml_chrom0_bm0(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chrom0_bm0(3,4,5,6,7,savetag='')
+    plot_set_ml_chromsmall_bm0(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chromsmall_bm0(3,4,5,6,7,savetag='')
+    plot_set_ml_chrom_bm0(3,4,5,6,7,savetag='')
+    plot_ml_chi_sq_bic_chrom_bm0(3,4,5,6,7,savetag='')
+
     plot_set_ml_chrom0_bm5(3,4,5,6,7,savetag='')
     plot_ml_chi_sq_bic_chrom0_bm5(3,4,5,6,7,savetag='')
     plot_set_ml_chromsmall_bm5(3,4,5,6,7,savetag='')
