@@ -1201,8 +1201,9 @@ def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     c = ChainConsumer()
     c.add_chain(mcmcChain[:,-3:], parameters=[r'$A_{21}$', r'$nu_{21}$', r'$\Delta$'])
     f = c.plotter.plot(truth=[*OBS.cm21_params])
-    f.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_corner.pdf")
-    f.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_corner.png")
+    if savetag is not None:
+        f.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_corner.pdf")
+        f.savefig(f"fig/MLmod/ml_"+runstr+savetag+"_corner.png")
     plt.show()
 
     # Plot inferred signal.
