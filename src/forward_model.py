@@ -133,7 +133,7 @@ def calc_observation_matrix_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=
         mat_Y_bl = BlockMatrix(mat=mat_Y, nblock=len(nuarr))
         mat_B_bl = BlockMatrix(mat=mat_B, nblock=len(nuarr))
         return mat_A_bl, (mat_G_bl, mat_P_bl, mat_Y_bl, mat_B_bl)
-    return BlockMatrix(mat=mat_A, nblock=len(nuarr))
+    return BlockMatrix(mat=mats, nblock=len(nuarr))
 
 def calc_observation_matrix_multi_zenith_driftscan_multifreq(nuarr, nside, lmax, Ntau=None, lats=[-26],
                             times=np.linspace(0, 24, 24, endpoint=False), 
