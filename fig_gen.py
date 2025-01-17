@@ -1389,7 +1389,6 @@ def plot_ml_chrom_pair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chr
     )
     ax[0,1].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
     ax[1,1].set_xlabel("Frequency [MHz]")
-    ax[0,1].legend()
     ax01_ymax = np.max(a00mean_mcmc+2*a00std_mcmc)*alm2temp + top_plot_spacing
     ax01_ymin = np.min(a00mean_mcmc-2*a00std_mcmc)*alm2temp - top_plot_spacing
 
