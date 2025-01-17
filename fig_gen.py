@@ -323,7 +323,7 @@ def plot_basemap_errs():
     ax[0].set_xlabel("Frequency [MHz]")
     ax[0].set_ylabel("Approximate Basemap Error [%]")
     ax[0].set_xlim(nuarr[0], nuarr[-1])
-    ax[0].set_ylim(0, 1e2*np.max(percentage_err_15))
+    ax[0].set_ylim(0, 1e2*np.max(percentage_err_10))
 
     bins = np.linspace(-50,50,41)
     #ax[1].hist(1e2*(err_mean_15[0]-err_15[0])/err_mean_15[0], bins=bins, ec='k', alpha=0.6, color='C2', label=' 15%')
