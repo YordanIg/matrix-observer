@@ -1413,6 +1413,23 @@ def plot_ml_chrom_pair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chr
     plt.show()
 
 
+def plot_ml_chrom_cornerpair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chromstr2=None, basemap_err1=None, basemap_err2=None, savetag=None):
+    runstr1 = construct_runstr(Nant1, Npoly1, chromstr1, basemap_err1)
+    runstr2 = construct_runstr(Nant2, Npoly2, chromstr2, basemap_err2)
+    print("loading from", runstr1, "and", runstr2, sep='\n')
+
+    mcmcChain1 = np.load('saves/MLmod/'+runstr1+'_mcmcChain.npy')
+    mcmcChain2 = np.load('saves/MLmod/'+runstr2+'_mcmcChain.npy')
+    c = ChainConsumer()
+    c.add_chain(mcmcChain2[:,-3:], parameters=[r'$A_{21}$', r'$nu_{21}$', r'$\Delta$'], name='')
+    c.add_chain(mcmcChain1[:,-3:], name='')
+    f = c.plotter.plot(truth=[*OBS.cm21_params])
+    if savetag is not None:
+        f.savefig(f"fig/MLmod/pairplots/ml_"+runstr1+savetag+"_corner.pdf")
+        f.savefig(f"fig/MLmod/pairplots/ml_"+runstr1+savetag+"_corner.png")
+    plt.show()
+
+
 def plot_ml_chi_sq_bic(Nant=4, Npolys=[], chromstr='3.4e-02', basemap_err=None, savetag=None):
     runstrs = []
     for Npoly in Npolys:
