@@ -323,7 +323,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     Nlmod   = RS.get_size(lmod)
     if lats is None:
         lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 24, 12, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
+    times = np.linspace(0, 24, 24, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
     nuarr = np.linspace(50,100,51)
     cm21_params     = OBS.cm21_params
     narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
