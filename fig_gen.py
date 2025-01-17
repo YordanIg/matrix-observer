@@ -645,6 +645,16 @@ def plot_ml_achrom(Nant=4, Npoly=6, bmerr_idx='0.0851'):
 # Chromatic and achromatic binwise modelling functions, with result plotting
 # and chi-squared and BIC trend plotting.
 ################################################################################
+def construct_runstr(Nant, Npoly, chromstr, basemap_err):
+    runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
+    if chromstr is not None:
+        runstr += f"_chrom<{chromstr}>"
+    else:
+        runstr += f"_achrom"
+    if basemap_err is not None:
+        runstr += f"_idx<{basemap_err}>"
+    return runstr
+
 def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None, savetag=None):
     #startpos = np.append(np.mean(np.load('saves/Binwise/Nant<4>_Npoly<8>_chrom<3.4e-02>_mcmcChain.npy'), axis=0)[:8], OBS.cm21_params)
     chain = np.load('saves/Binwise/Nant<4>_Npoly<10>_chrom<3.4e-02>_mcmcChain.npy')
@@ -1264,15 +1274,6 @@ def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     np.save('saves/MLmod/'+runstr+'_chi_sq.npy', chi_sq)
 
 def plot_ml_chrom_pair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chromstr2=None, basemap_err1=None, basemap_err2=None, savetag=None):
-    def construct_runstr(Nant, Npoly, chromstr, basemap_err):
-        runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
-        if chromstr is not None:
-            runstr += f"_chrom<{chromstr}>"
-        else:
-            runstr += f"_achrom"
-        if basemap_err is not None:
-            runstr += f"_idx<{basemap_err}>"
-        return runstr
     runstr1 = construct_runstr(Nant1, Npoly1, chromstr1, basemap_err1)
     runstr2 = construct_runstr(Nant2, Npoly2, chromstr2, basemap_err2)
     print("loading from", runstr1, "and", runstr2, sep='\n')
