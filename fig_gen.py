@@ -1263,6 +1263,154 @@ def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None
     print("monopole chi-sq", chi_sq)
     np.save('saves/MLmod/'+runstr+'_chi_sq.npy', chi_sq)
 
+def plot_ml_chrom_pair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chromstr2=None, basemap_err1=None, basemap_err2=None, savetag=None):
+    def construct_runstr(Nant, Npoly, chromstr, basemap_err):
+        runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
+        if chromstr is not None:
+            runstr += f"_chrom<{chromstr}>"
+        else:
+            runstr += f"_achrom"
+        if basemap_err is not None:
+            runstr += f"_idx<{basemap_err}>"
+        return runstr
+    runstr1 = construct_runstr(Nant1, Npoly1, chromstr1, basemap_err1)
+    runstr2 = construct_runstr(Nant2, Npoly2, chromstr2, basemap_err2)
+    print("loading from", runstr1, "and", runstr2, sep='\n')
+
+
+    fig, ax = plt.subplots(2, 2, figsize=(5,3), sharex=True, gridspec_kw={'height_ratios':[3,1]})
+
+    mcmcChain = np.load('saves/MLmod/'+runstr1+'_mcmcChain.npy')
+    residuals = np.load('saves/MLmod/'+runstr1+'_modres.npy')
+    data      = np.load('saves/MLmod/'+runstr1+'_data.npy')
+    dataerr   = np.load('saves/MLmod/'+runstr1+'_dataerr.npy')
+    fid_a00   = np.load("saves/MLmod/"+runstr1+"_fid_a00.npy")
+    rec_a00   = np.load("saves/MLmod/"+runstr1+"_rec_a00.npy")
+    a00_error = np.load("saves/MLmod/"+runstr1+"_rec_a00_err.npy")
+    
+    # Calculate number of timeseries data points per antenna to reshape the data
+    # arrays.
+    Nfreq = len(OBS.nuarr)
+    Ntau  = int(len(data) / (Nfreq*Nant1))
+    data  = np.reshape(data, (Nfreq, Nant1, Ntau))
+    dataerr   = np.reshape(dataerr, (Nfreq, Nant1, Ntau))
+    residuals = np.reshape(residuals, (Nfreq, Nant1, Ntau))
+
+    # Plot inferred signal.
+    cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
+    cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
+
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChain))), size=1000)
+    samples_mcmcChain = mcmcChain[idx_mcmcChain]
+    samples_mcmcChain = samples_mcmcChain[:,-3:]
+    a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
+    a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
+    a00std_mcmc  = np.std(a00list_mcmc, axis=0)
+    ax[0,0].plot(OBS.nuarr, cm21_a00*alm2temp, label='fiducial', linestyle=':', color='k')
+    ax[0,0].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    ax[0,0].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-2*a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+2*a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    ax[0,0].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
+    ax[1,0].set_xlabel("Frequency [MHz]")
+    ax[0,0].set_ylabel(r"21-cm Temperature [K]")
+    ax[0,0].legend()
+    top_plot_spacing = 0.02
+    ax00_ymax = np.max(a00mean_mcmc+2*a00std_mcmc)*alm2temp + top_plot_spacing
+    ax00_ymin = np.min(a00mean_mcmc-2*a00std_mcmc)*alm2temp - top_plot_spacing
+
+    ax[1,0].axhline(y=0, linestyle=':', color='k')
+    ax[1,0].errorbar(OBS.nuarr, (rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp, a00_error*alm2temp, fmt='.', color='k', ms=2)
+    ax[1,0].axhline(0, linestyle=':', color='k')
+    ax[1,0].set_ylabel(r"$\hat{T}_\mathrm{mon}-\mathcal{M}$ [K]")
+    bottom_plot_spacing = 0.01
+    ax10_ymax = np.max(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp + bottom_plot_spacing
+    ax10_ymin = np.min(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp - bottom_plot_spacing
+
+
+    mcmcChain = np.load('saves/MLmod/'+runstr2+'_mcmcChain.npy')
+    residuals = np.load('saves/MLmod/'+runstr2+'_modres.npy')
+    data      = np.load('saves/MLmod/'+runstr2+'_data.npy')
+    dataerr   = np.load('saves/MLmod/'+runstr2+'_dataerr.npy')
+    fid_a00   = np.load("saves/MLmod/"+runstr2+"_fid_a00.npy")
+    rec_a00   = np.load("saves/MLmod/"+runstr2+"_rec_a00.npy")
+    a00_error = np.load("saves/MLmod/"+runstr2+"_rec_a00_err.npy")
+
+    # Calculate number of timeseries data points per antenna to reshape the data
+    # arrays.
+    Nfreq = len(OBS.nuarr)
+    Ntau  = int(len(data) / (Nfreq*Nant2))
+    data  = np.reshape(data, (Nfreq, Nant2, Ntau))
+    dataerr   = np.reshape(dataerr, (Nfreq, Nant2, Ntau))
+    residuals = np.reshape(residuals, (Nfreq, Nant2, Ntau))
+
+    # Plot inferred signal.
+    cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
+    cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
+
+    idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChain))), size=1000)
+    samples_mcmcChain = mcmcChain[idx_mcmcChain]
+    samples_mcmcChain = samples_mcmcChain[:,-3:]
+    a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
+    a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
+    a00std_mcmc  = np.std(a00list_mcmc, axis=0)
+    ax[0,1].plot(OBS.nuarr, cm21_a00*alm2temp, label='fiducial', linestyle=':', color='k')
+    ax[0,1].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.8,
+        edgecolor='none',
+        label="inferred"
+    )
+    ax[0,1].fill_between(
+        OBS.nuarr,
+        (a00mean_mcmc-2*a00std_mcmc)*alm2temp, 
+        (a00mean_mcmc+2*a00std_mcmc)*alm2temp,
+        color='C1',
+        alpha=0.4,
+        edgecolor='none'
+    )
+    ax[0,1].set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
+    ax[1,1].set_xlabel("Frequency [MHz]")
+    ax[0,1].legend()
+    ax01_ymax = np.max(a00mean_mcmc+2*a00std_mcmc)*alm2temp + top_plot_spacing
+    ax01_ymin = np.min(a00mean_mcmc-2*a00std_mcmc)*alm2temp - top_plot_spacing
+
+    ax[1,1].axhline(y=0, linestyle=':', color='k')
+    ax[1,1].errorbar(OBS.nuarr, (rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp, a00_error*alm2temp, fmt='.', color='k', ms=2)
+    ax[1,1].axhline(0, linestyle=':', color='k')
+    ax11_ymax = np.max(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp + bottom_plot_spacing
+    ax11_ymin = np.min(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp - bottom_plot_spacing
+
+    ax[0,0].set_ylim([min(ax00_ymin, ax01_ymin), max(ax00_ymax, ax01_ymax)])
+    ax[0,1].set_ylim([min(ax00_ymin, ax01_ymin), max(ax00_ymax, ax01_ymax)])
+    ax[1,0].set_ylim([min(ax10_ymin, ax11_ymin), max(ax10_ymax, ax11_ymax)])
+    ax[1,1].set_ylim([min(ax10_ymin, ax11_ymin), max(ax10_ymax, ax11_ymax)])
+    # Turn off the y axis ticklabels for the right plots.
+    ax[0,1].set_yticklabels([])
+    ax[1,1].set_yticklabels([])
+
+    fig.tight_layout()
+    if savetag is not None:
+        plt.savefig(f"fig/MLmod/pairplots/ml_"+runstr1+"and"+runstr2+savetag+".pdf")
+        plt.savefig(f"fig/MLmod/pairplots/ml_"+runstr1+"and"+runstr2+savetag+".png")
+    plt.show()
+
 
 def plot_ml_chi_sq_bic(Nant=4, Npolys=[], chromstr='3.4e-02', basemap_err=None, savetag=None):
     runstrs = []
