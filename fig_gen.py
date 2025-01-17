@@ -144,7 +144,7 @@ def plot_basemap_err(save=False):
     ax[0].axhline(y=0, linestyle=':', color='k')
     ax[0].plot(OBS.nuarr,fid_temp.vector-err05_temp.vector, label='5%')
     ax[0].plot(OBS.nuarr,fid_temp.vector-err10_temp.vector, label='10%')
-    ax[0].plot(OBS.nuarr,fid_temp.vector-err15_temp.vector, label='15%')
+    #ax[0].plot(OBS.nuarr,fid_temp.vector-err15_temp.vector, label='15%')
     ax[0].legend()
     ax[0].set_ylabel("Temperature [K]")
     ax[0].set_xlabel("Frequency [MHz]")
@@ -175,7 +175,7 @@ def plot_basemap_err(save=False):
     ax[1].axhline(y=0, linestyle=':', color='k')
     ax[1].plot(OBS.nuarr,fid_temp.vector-err05_temp.vector)
     ax[1].plot(OBS.nuarr,fid_temp.vector-err10_temp.vector)
-    ax[1].plot(OBS.nuarr,fid_temp.vector-err15_temp.vector)
+    #ax[1].plot(OBS.nuarr,fid_temp.vector-err15_temp.vector)
     ax[1].set_xlabel("Frequency [MHz]")
     fig.tight_layout()
     if save:
