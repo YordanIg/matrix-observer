@@ -255,9 +255,9 @@ def plot_fwhm():
     """
     nu = np.linspace(50, 100, 100)
     fig, ax = plt.subplots(figsize=(4.2, 3.5))
-    c_values = [0, 1.6e-2, 3.4e-2]
-    lss = [':', '--', '-.']
-    cols = ["k", "C0", "C1"]
+    c_values = [0, 1.6e-2, 3.4e-2, 5.2e-2]
+    lss = [':', '--', '-.', (0, (3, 5, 1, 5, 1, 5))]
+    cols = ["k", "C0", "C1", "C2"]
     for c, ls, col in zip(c_values, lss, cols):
         ax.plot(nu, np.degrees(BF.fwhm_func_tauscher(nu, c)), linestyle=ls, color=col)
     ax.axhline(y=72, linestyle='-', color='k')
@@ -265,6 +265,7 @@ def plot_fwhm():
     ax.text(x=62.9, y=65.8, s="0.0e-02", rotation=33)
     ax.text(x=65.8, y=62.5, s="1.6e-02", rotation=28)
     ax.text(x=69.5, y=58.1, s="3.4e-02", rotation=30)
+    ax.text(x=73.6, y=54, s="5.2e-02", rotation=38)
     
     ax.set_xlabel("Frequency [MHz]")
     ax.set_ylabel("Beam FWHM [deg]")
