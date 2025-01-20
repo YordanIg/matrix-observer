@@ -1178,6 +1178,30 @@ def plot_set_ml_chrom_bm10(*Npolys, savetag=None):
 def plot_ml_chi_sq_bic_chrom_bm10(*Npolys, savetag=None):
     plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='3.4e-02', basemap_err=10, savetag=savetag)
 
+# 3.4e-2 chromaticity, 20% basemap error.
+def run_set_gen_ml_chrom_bm20(*Npolys):
+    for Npoly in Npolys:
+        gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=3.4e-2, basemap_err=20)
+
+def plot_set_ml_chrom_bm20(*Npolys, savetag=None):
+    for Npoly in Npolys:
+        plot_ml_chrom(Nant=7, Npoly=Npoly, chromstr='3.4e-02', basemap_err=20, savetag=savetag)
+
+def plot_ml_chi_sq_bic_chrom_bm20(*Npolys, savetag=None):
+    plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='3.4e-02', basemap_err=20, savetag=savetag)
+
+# 5.2e-2 chromaticity, 10% basemap error.
+def run_set_gen_ml_chromlarge_bm10(*Npolys):
+    for Npoly in Npolys:
+        gen_ml_chrom(Nant=7, Npoly=Npoly, chrom=5.2e-2, basemap_err=10)
+
+def plot_set_ml_chromlarge_bm10(*Npolys, savetag=None):
+    for Npoly in Npolys:
+        plot_ml_chrom(Nant=7, Npoly=Npoly, chromstr='5.2e-02', basemap_err=10, savetag=savetag)
+
+def plot_ml_chi_sq_bic_chromlarge_bm10(*Npolys, savetag=None):
+    plot_ml_chi_sq_bic(Nant=7, Npolys=Npolys, chromstr='5.2e-02', basemap_err=10, savetag=savetag)
+
 
 def plot_ml_chrom(Nant=7, Npoly=7, chromstr=None, basemap_err=None, savetag=None):
     runstr    = f"Nant<{Nant}>_Npoly<{Npoly}>"
@@ -1281,7 +1305,7 @@ def plot_ml_chrom_pair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chr
     print("loading from", runstr1, "and", runstr2, sep='\n')
 
 
-    fig, ax = plt.subplots(2, 2, figsize=(5,3), sharex=True, gridspec_kw={'height_ratios':[3,1]})
+    fig, ax = plt.subplots(2, 2, figsize=(6,4), sharex=True, gridspec_kw={'height_ratios':[3,1]})
 
     mcmcChain = np.load('saves/MLmod/'+runstr1+'_mcmcChain.npy')
     residuals = np.load('saves/MLmod/'+runstr1+'_modres.npy')
@@ -1340,8 +1364,8 @@ def plot_ml_chrom_pair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chr
     ax[1,0].axhline(0, linestyle=':', color='k')
     ax[1,0].set_ylabel(r"$\hat{T}_\mathrm{mon}-\mathcal{M}$ [K]")
     bottom_plot_spacing = 0.01
-    ax10_ymax = np.max(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp + bottom_plot_spacing
-    ax10_ymin = np.min(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp - bottom_plot_spacing
+    ax10_ymax = np.max(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp + np.max(a00_error*alm2temp) + bottom_plot_spacing
+    ax10_ymin = np.min(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp - np.max(a00_error*alm2temp) - bottom_plot_spacing
 
 
     mcmcChain = np.load('saves/MLmod/'+runstr2+'_mcmcChain.npy')
@@ -1396,8 +1420,8 @@ def plot_ml_chrom_pair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chr
     ax[1,1].axhline(y=0, linestyle=':', color='k')
     ax[1,1].errorbar(OBS.nuarr, (rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp, a00_error*alm2temp, fmt='.', color='k', ms=2)
     ax[1,1].axhline(0, linestyle=':', color='k')
-    ax11_ymax = np.max(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp + bottom_plot_spacing
-    ax11_ymin = np.min(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp - bottom_plot_spacing
+    ax11_ymax = np.max(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp + np.max(a00_error*alm2temp) + bottom_plot_spacing
+    ax11_ymin = np.min(rec_a00-fg_cm21_polymod(OBS.nuarr, *np.mean(mcmcChain, axis=0)))*alm2temp - np.max(a00_error*alm2temp) - bottom_plot_spacing
 
     ax[0,0].set_ylim([min(ax00_ymin, ax01_ymin), max(ax00_ymax, ax01_ymax)])
     ax[0,1].set_ylim([min(ax00_ymin, ax01_ymin), max(ax00_ymax, ax01_ymax)])
