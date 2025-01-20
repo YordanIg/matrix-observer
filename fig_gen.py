@@ -257,8 +257,9 @@ def plot_fwhm():
     fig, ax = plt.subplots(figsize=(4.2, 3.5))
     c_values = [0, 1.6e-2, 3.4e-2]
     lss = [':', '--', '-.']
-    for c, ls in zip(c_values, lss):
-        ax.plot(nu, np.degrees(BF.fwhm_func_tauscher(nu, c)), linestyle=ls)#, label=f"c={c:.1e}")
+    cols = ["k", "C0", "C1"]
+    for c, ls, col in zip(c_values, lss, cols):
+        ax.plot(nu, np.degrees(BF.fwhm_func_tauscher(nu, c)), linestyle=ls, color=col)
     ax.axhline(y=72, linestyle='-', color='k')
     ax.text(x=60, y=72.2, s="achromatic")
     ax.text(x=62.9, y=65.8, s="0.0e-02", rotation=33)
