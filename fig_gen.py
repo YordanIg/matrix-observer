@@ -676,7 +676,7 @@ def gen_binwise_chrom(Nant=4, Npoly=4, chrom=None, basemap_err=None, savetag=Non
     pars = [elt[1] for elt in c.analysis.get_summary().values()]
     pars = pars[:10]
     startpos = None#np.array(pars)
-    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=100000, burn_in=75000, fidmap_HS=False)
+    fg_cm21_chrom_corr(Npoly=Npoly, mcmc=True, chrom=chrom, savetag=savetag, lats=ant_LUT[Nant], mcmc_pos=startpos, basemap_err=basemap_err, steps=200000, burn_in=175000, fidmap_HS=False)
 
 # Achromatic, no basemap error.
 def run_set_gen_binwise_chrom0_bm0(*Npolys, savetag=''):
@@ -1126,6 +1126,7 @@ def plot_showcase_binwise():
     tagged_chain_bl['config'] = {'name' : ''}
     cornerplot = AxesCornerPlot(tagged_chain_bl, tagged_chain_tr, tagged_chain_tl, 
                                 labels=param_labels, param_truths=OBS.cm21_params)
+    cornerplot.set_figurepad(0.15)
     cornerfig = cornerplot.get_figure()
     cornerfig.savefig("fig/Binwise/showcase_binwise_corner.pdf")
     plt.show()
