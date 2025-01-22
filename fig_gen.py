@@ -1111,6 +1111,61 @@ def plot_showcase_binwise():
     plt.savefig("fig/Binwise/showcase_binwise.pdf")
     plt.show()
 
+    # CORNER PLOT.
+    mcmcChain_tl  = np.load('saves/Binwise/'+runstr_tl+'_mcmcChain.npy')
+    mcmcChain_tr  = np.load('saves/Binwise/'+runstr_tr+'_mcmcChain.npy')
+    mcmcChain_bl  = np.load('saves/Binwise/'+runstr_bl+'_mcmcChain.npy')
+
+    param_labels = [r'$A_{21}$', r'$\nu_{21}$', r'$\Delta$']
+    param_tags   = ['A', 'nu', 'delta']
+    tagged_chain_tl = {tag: value for tag, value in zip(param_tags, mcmcChain_tl[:,-3:].transpose())}
+    tagged_chain_tr = {tag: value for tag, value in zip(param_tags, mcmcChain_tr[:,-3:].transpose())}
+    tagged_chain_bl = {tag: value for tag, value in zip(param_tags, mcmcChain_bl[:,-3:].transpose())}
+    tagged_chain_tl['config'] = {'name' : ''}
+    tagged_chain_tr['config'] = {'name' : ''}
+    tagged_chain_bl['config'] = {'name' : ''}
+    cornerplot = AxesCornerPlot(tagged_chain_bl, tagged_chain_tr, tagged_chain_tl, 
+                                labels=param_labels, param_truths=OBS.cm21_params)
+    cornerfig = cornerplot.get_figure()
+    cornerfig.savefig("fig/Binwise/showcase_binwise_corner.pdf")
+    plt.show()
+
+
+
+def plot_ml_chrom_cornerpair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=None, chromstr2=None, basemap_err1=None, basemap_err2=None, savetag=None):
+    runstr1 = construct_runstr(Nant1, Npoly1, chromstr1, basemap_err1)
+    runstr2 = construct_runstr(Nant2, Npoly2, chromstr2, basemap_err2)
+    print("loading from", runstr1, "and", runstr2, sep='\n')
+
+    mcmcChain1  = np.load('saves/MLmod/'+runstr1+'_mcmcChain.npy')
+    mcmcChain2  = np.load('saves/MLmod/'+runstr2+'_mcmcChain.npy')
+    cm21_chain1 = mcmcChain1[:,-3:]
+    cm21_chain2 = mcmcChain2[:,-3:]
+
+    param_labels = [r'$A_{21}$', r'$\nu_{21}$', r'$\Delta$']
+    param_tags   = ['A', 'nu', 'delta']
+    tagged_chain1 = {tag: value for tag, value in zip(param_tags, cm21_chain1.transpose())}
+    tagged_chain2 = {tag: value for tag, value in zip(param_tags, cm21_chain2.transpose())}
+    tagged_chain1['config'] = {'name' : ''}
+    tagged_chain2['config'] = {'name' : ''}
+
+    cornerplot = AxesCornerPlot(tagged_chain2, tagged_chain1, 
+                                labels=param_labels, param_truths=OBS.cm21_params)
+    cornerplot.set_xticks("A", [-0.4, -0.3, -0.2, -0.1])
+    #cornerplot.set_xticks("nu", [-0.4, -0.3, -0.2])
+    cornerplot.set_figurepad(0.15)
+    f = cornerplot.get_figure()
+    
+    '''
+    c = ChainConsumer()
+    c.add_chain(mcmcChain2[:,-3:], parameters=[r'$A_{21}$', r'$nu_{21}$', r'$\Delta$'], name='')
+    c.add_chain(mcmcChain1[:,-3:], name='')
+    f = c.plotter.plot(truth=[*OBS.cm21_params])'''
+    if savetag is not None:
+        f.savefig(f"fig/MLmod/pairplots/ml_"+runstr1+savetag+"_corner.pdf")
+        f.savefig(f"fig/MLmod/pairplots/ml_"+runstr1+savetag+"_corner.png")
+    plt.show()
+
 
 
 
