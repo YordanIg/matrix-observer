@@ -207,7 +207,7 @@ def plot_skytrack_maps():
     mat_Y  = calc_spherical_harmonic_matrix(nside=32, lmax=32)
 
     # Split the spherical harmonic matrix into the low and high multipole sections, dividing at lmod.
-    lmod  = 3
+    lmod  = 5
     Nlmod = RS.get_size(lmod)
     mat_Y_mod   = mat_Y[:,:Nlmod]
     mat_Y_unmod = mat_Y[:,Nlmod:]
