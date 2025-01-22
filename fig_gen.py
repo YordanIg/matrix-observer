@@ -1168,6 +1168,38 @@ def plot_ml_chrom_cornerpair(Nant1=7, Nant2=7, Npoly1=7, Npoly2=7, chromstr1=Non
     plt.show()
 
 
+def plot_showcase_ml_corner():
+    """
+    Final corner plot for showcasing ML modelling, featuring the 21-cm
+    posteriors for achromatic case and c=3.4e-2 both with 10% foreground 
+    correction errors, as well as c=3.4e-2 with 20% foreground correction 
+    errors.
+    """
+    Nants = [7,7,7]
+    Npolys = [3,3,4]
+    chromstrs = [None, '3.4e-02', '3.4e-02']
+    basemap_errs = [10, 10, 20]
+    runstrs = [construct_runstr(Nants[i], Npolys[i], chromstrs[i], basemap_errs[i]) for i in range(3)]
+    print("loading from", runstrs)
+
+    mcmcChains = [np.load('saves/MLmod/'+runstr+'_mcmcChain.npy') for runstr in runstrs]
+    cm21_chains = [chain[:,-3:] for chain in mcmcChains]
+
+    param_labels = [r'$A_{21}$', r'$\nu_{21}$', r'$\Delta$']
+    param_tags   = ['A', 'nu', 'delta']
+    tagged_chains = [{tag: value for tag, value in zip(param_tags, chain.transpose())} for chain in cm21_chains]
+    for i in range(3):
+        tagged_chains[i]['config'] = {'name' : '', 'shade_alpha' : 0.1}
+    
+    cornerplot = AxesCornerPlot(tagged_chains[2], tagged_chains[1], tagged_chains[0], 
+                                labels=param_labels, param_truths=OBS.cm21_params,
+                                plotter_kwargs={'figsize':"COLUMN"})
+    cornerplot.set_figurepad(0.15)
+    f = cornerplot.get_figure()
+    f.savefig("fig/MLmod/showcase_ml_corner.pdf")
+    plt.show()
+
+
 
 
 def plot_binwise_chi_sq_bic(Nant=7, Npolys=[], chromstr='3.4e-02', basemap_err=None, savetag=None):
