@@ -163,7 +163,7 @@ class AxesCornerPlot():
     representation) and a label (to use when plotting). If no labels are
     passed, will use the tags as the labels.
     """
-    def __init__(self, *tagged_chains : dict, labels=None, param_truths=None):
+    def __init__(self, *tagged_chains : dict, labels=None, param_truths=None, plotter_kwargs={}):
         """
         Allows easy axis limit and label customisation on top of ChainConsumer
         corner plots. Each parameter has both a tag (a simple string 
@@ -184,6 +184,9 @@ class AxesCornerPlot():
             string labels. If not passed, uses the chain's tags as labels.
         param_truths : list of floats, optional
             List containing the fiducial parameter values.
+        plotter_kwargs : dict, optional
+            Dictionary of keyword arguments to pass to the ChainConsumer.plotter
+            method.
         """
         # Check labels and param_truths lengths are the same as the dimension of 
         # all the tagged chains.
@@ -221,7 +224,7 @@ class AxesCornerPlot():
                 chain_kwargs = {}
             self.consumer.add_chain(tagged_chain, **chain_kwargs)
         
-        self.cornerfig = self.consumer.plotter.plot(truth=param_truths)
+        self.cornerfig = self.consumer.plotter.plot(truth=param_truths, **plotter_kwargs)
         self.axiscube  = np.reshape(self.cornerfig.axes, (self.dim, self.dim))
 
         # Set the labels of the corner plot, overriding the default
