@@ -1002,6 +1002,118 @@ def plot_binwise_chrom_pair(Nant=7, Npolys=(5,6), chromstr='1.6e-02', basemap_er
         plt.savefig(f"fig/Binwise/bw_"+savestr+savetag+".png")
     plt.show()
 
+def plot_showcase_binwise():
+    """
+    The final four-panel figure to showcase all binwise modelling/fitting.
+    Involves a figure showing chrom0, chrom small, chrom large and the BIC plots
+    for each of these all on one subplot.
+    """
+    # Create figure with GridSpec
+    fig = plt.figure(figsize=(6,6))
+    gs = gridspec.GridSpec(2, 2, figure=fig)
+
+    # Create subplots for first three panels (top-left, top-right, bottom-left)
+    for i in range(3):
+        row = i // 2
+        col = i % 2
+        # Create nested GridSpec for the panel with ratio 3:1
+        nested_gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[row, col],
+                                                    height_ratios=[3, 1])
+        ax_top = fig.add_subplot(nested_gs[0])
+        ax_bottom = fig.add_subplot(nested_gs[1])
+        
+        # Store axes for later use
+        if i == 0:
+            ax_tl_top, ax_tl_bottom = ax_top, ax_bottom
+        elif i == 1:
+            ax_tr_top, ax_tr_bottom = ax_top, ax_bottom
+        else:
+            ax_bl_top, ax_bl_bottom = ax_top, ax_bottom
+
+    # Create single subplot for bottom-right panel
+    ax_br = fig.add_subplot(gs[1, 1])
+    Npoly1, Npoly2, Npoly3 = 3, 5, 6
+    runstr_tl = construct_runstr(Nant=7, Npoly=Npoly1, chromstr=None, basemap_err=None)
+    runstr_tr = construct_runstr(Nant=7, Npoly=Npoly2, chromstr='1.6e-02', basemap_err=None)
+    runstr_bl = construct_runstr(Nant=7, Npoly=Npoly3, chromstr='3.4e-02', basemap_err=None)
+
+    def construct_plot(ax_top, ax_bottom, runstr, Npoly):
+        # Load data
+        mcmcChain = np.load('saves/Binwise/'+runstr+'_mcmcChain.npy')
+        data      = np.load('saves/Binwise/'+runstr+'_data.npy')
+        dataerr   = np.load('saves/Binwise/'+runstr+'_dataerr.npy')
+
+        # Calculate contours and fid line.
+        cm21_a00_mod = lambda nuarr, theta: np.sqrt(4*np.pi)*SM.cm21_globalT(nuarr, *theta)
+        cm21_a00 = cm21_a00_mod(OBS.nuarr, theta=OBS.cm21_params)
+        idx_mcmcChain = np.random.choice(a=list(range(len(mcmcChain))), size=1000)
+        samples_mcmcChain = mcmcChain[idx_mcmcChain]
+        samples_mcmcChain = samples_mcmcChain[:,-3:]
+        a00list_mcmc = [cm21_a00_mod(OBS.nuarr, theta) for theta in samples_mcmcChain]
+        a00mean_mcmc = np.mean(a00list_mcmc, axis=0)
+        a00std_mcmc  = np.std(a00list_mcmc, axis=0)
+        # Plot
+        ax_top.plot(OBS.nuarr, cm21_a00*alm2temp, label='fiducial', linestyle=':', color='k')
+        ax_top.fill_between(
+            OBS.nuarr,
+            (a00mean_mcmc-a00std_mcmc)*alm2temp, 
+            (a00mean_mcmc+a00std_mcmc)*alm2temp,
+            color='C1',
+            alpha=0.8,
+            edgecolor='none',
+            label="inferred"
+        )
+        ax_top.fill_between(
+            OBS.nuarr,
+            (a00mean_mcmc-2*a00std_mcmc)*alm2temp, 
+            (a00mean_mcmc+2*a00std_mcmc)*alm2temp,
+            color='C1',
+            alpha=0.4,
+            edgecolor='none'
+        )
+        ax_top.set_ylabel("21-cm Temperature [K]")
+        ax_top.set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
+        ax_top.set_xticklabels([])
+        ax_bottom.set_xlim([OBS.nuarr[0], OBS.nuarr[-1]])
+        ax_bottom.set_xlabel("Frequency [MHz]")
+
+        mat_A_dummy = FM.generate_dummy_mat_A(OBS.nuarr, Ntau=1, lmod=32)
+        mod = FM.generate_binwise_cm21_forward_model(nuarr=OBS.nuarr, observation_mat=mat_A_dummy, Npoly=Npoly)
+        ax_bottom.axhline(y=0, linestyle=':', color='k')
+        ax_bottom.errorbar(OBS.nuarr, mod(np.mean(mcmcChain, axis=0))-data, dataerr, fmt='.', color='k', ms=2)
+        ax_bottom.set_ylabel(r"$T_\mathrm{res}$ [K]")
+
+    construct_plot(ax_tl_top, ax_tl_bottom, runstr_tl, Npoly1)
+    construct_plot(ax_tr_top, ax_tr_bottom, runstr_tr, Npoly2)
+    construct_plot(ax_bl_top, ax_bl_bottom, runstr_bl, Npoly3)
+    ax_tl_top.legend(loc='lower right')
+
+
+    # Make bottom-right subplot.
+    Npolys = [3,4,5,6,7]
+    runstrs_chrom0     = [construct_runstr(Nant=7, Npoly=Npoly, chromstr=None, basemap_err=None) for Npoly in Npolys]
+    runstrs_chromsmall = [construct_runstr(Nant=7, Npoly=Npoly, chromstr='1.6e-02', basemap_err=None) for Npoly in Npolys]
+    runstrs_chrom      = [construct_runstr(Nant=7, Npoly=Npoly, chromstr='3.4e-02', basemap_err=None) for Npoly in Npolys]
+    bics_chrom0     = [np.load('saves/Binwise/'+runstr+'_bic.npy') for runstr in runstrs_chrom0]
+    bics_chromsmall = [np.load('saves/Binwise/'+runstr+'_bic.npy') for runstr in runstrs_chromsmall]
+    bics_chrom      = [np.load('saves/Binwise/'+runstr+'_bic.npy') for runstr in runstrs_chrom]
+    ax_br.semilogy(Npolys, bics_chrom0, color='C0', linestyle='-', marker='o', label='achromatic')
+    ax_br.semilogy(Npolys, bics_chromsmall, color='C1', linestyle='-', marker='s', label='c=1.6e-02')
+    ax_br.semilogy(Npolys, bics_chrom, color='C2', linestyle='-', marker='^', label='c=3.4e-02')
+    ax_br.set_ylabel("Model BIC")
+    ax_br.set_xlabel("$N_\mathrm{poly}$")
+    ax_br.legend(loc='upper right')
+    ax_br.set_xticks(ticks=Npolys, labels=Npolys, minor=False)
+    ax_br.set_xlim([Npolys[0], Npolys[-1]])
+
+    # Set spacing between subplots
+    fig.tight_layout()
+    plt.savefig("fig/Binwise/showcase_binwise.pdf")
+    plt.show()
+
+
+
+
 def plot_binwise_chi_sq_bic(Nant=7, Npolys=[], chromstr='3.4e-02', basemap_err=None, savetag=None):
     runstrs = []
     for Npoly in Npolys:
