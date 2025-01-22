@@ -256,7 +256,7 @@ def plot_fwhm():
     nu = np.linspace(50, 100, 100)
     fig, ax = plt.subplots(figsize=(4.2, 3.5))
     c_values = [0, 1.6e-2, 3.4e-2, 5.2e-2]
-    lss = [':', '--', '-.', (0, (3, 5, 1, 5, 1, 5))]
+    lss = [':', '--', '-.', (0, (6.4, 1.6, 1.0, 1.6, 1.0, 1.6))]
     cols = ["k", "C0", "C1", "C2"]
     for c, ls, col in zip(c_values, lss, cols):
         ax.plot(nu, np.degrees(BF.fwhm_func_tauscher(nu, c)), linestyle=ls, color=col)
