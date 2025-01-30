@@ -18,6 +18,7 @@ import src.sky_models as SM
 import src.coordinates as CO
 import src.beam_functions as BF
 import src.forward_model as FM
+import src.map_making as MM
 from src.blockmat import BlockMatrix
 from src.spherical_harmonics import RealSphericalHarmonics, calc_spherical_harmonic_matrix
 from src.plotting import AxesCornerPlot
@@ -351,6 +352,60 @@ def plot_basemap_errs():
     plt.savefig("fig/basemap_errs.png")
     plt.show()
 
+################################################################################
+# Monopole reconstruction error figure.
+################################################################################
+def plot_monopole_reconstruction_err():
+    # Generate single-frequency noisy foregrounds.
+    fg = SM.foreground_gsma_alm_nsidelo(nu=70, lmax=32, nside=32, use_mat_Y=True)
+
+    # Truncate this at various ell values.
+    ell_arr = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    N_arr   = [RS.get_size(ell) for ell in ell_arr]
+    fg_truncs = [fg[:N] for N in N_arr]
+
+    def calc_mon_err(lats):
+        # Generate observation matrix for 7 antennas.
+        times = np.linspace(0, 24, 24, endpoint=False)
+        narrow_cosbeam = lambda x: BF.beam_cos(x, 0.8)
+        mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside=32, lmax=32, 
+                                                        lats=lats, 
+                                                        times=times, beam_use=narrow_cosbeam, return_mat=True)
+
+        # Observe for various ell values
+        mat_A_truncs = [mat_A[:,:N] for N in N_arr]#[mat_P@mat_Y_i@mat_B_i for mat_Y_i,mat_B_i in zip(mat_Y_truncs, mat_B_truncs)]
+        d_truncs = [mat_A_i@fg_i for mat_A_i,fg_i in zip(mat_A_truncs,fg_truncs)]
+
+        # Add noise.
+        d_noise_andcov_truncs = [SM.add_noise(d, dnu=1, Ntau=len(times), t_int=200, seed=456) for d in d_truncs]
+        d_noise_truncs, d_cov_truncs = map(list, zip(*d_noise_andcov_truncs))
+
+        # Compute the maxlike estimator matrix for each case.
+        mat_W_truncs = [MM.calc_ml_estimator_matrix(mat_A_i, mat_N_i, cond=True) for mat_A_i, mat_N_i in zip(mat_A_truncs, d_cov_truncs)]
+
+        # Reconstruct the alm for each truncation case.
+        alm_rec_truncs = [mat_W_i @ d_noise_i for mat_W_i,d_noise_i in zip(mat_W_truncs,d_noise_truncs)]
+
+        # Visualise the reconstruction error for the monopole in each case.
+        mon_err = [1e3*np.abs((alm_rec_i[0]-fg_i[0])*alm2temp) for fg_i,alm_rec_i in zip(fg_truncs,alm_rec_truncs)]
+        return mon_err
+    
+    mon_err7 = calc_mon_err([-3*26, -2*26, -1*26, 0, 1*26, 2*26, 3*26])
+    mon_err5 = calc_mon_err([-2*26, -1*26, 0, 1*26, 2*26])
+    mon_err3 = calc_mon_err([-1*26, 0, 26])
+    
+    fig, ax = plt.subplots(figsize=(4.2, 3.5))
+    lss = [':', '--', '-.']
+    ax.plot(ell_arr,mon_err7, label=r'$N_\mathrm{ant}$=7', linestyle=lss[0])
+    ax.plot(ell_arr,mon_err5, label=r'$N_\mathrm{ant}$=5', linestyle=lss[1])
+    ax.plot(ell_arr,mon_err3, label=r'$N_\mathrm{ant}$=3', linestyle=lss[2])
+    ax.set_xlabel(r"$l_\mathrm{mod}$")
+    ax.set_ylabel(r"Monopole Reconstruction Error [mK]")
+    ax.set_xlim(0,12)
+    ax.set_ylim(0, 130)
+    ax.legend()
+    plt.savefig("fig/monopole_reconstruction_err.pdf")
+    plt.show()
 
 ################################################################################
 # Alm polynomial forward model inference functions.
