@@ -72,7 +72,7 @@ def calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=None, lats=
                             beam_use=BF.beam_cos, return_mat=False):
     """
     Calculate the total observation and binning matrix A = GPYB
-    for a single drifscan antenna pointing at zenith with a cos^2
+    for multiple single drifscan antennas pointing at zenith with a cos^2
     beamfunction. If Ntau = len(times)*len(lats), G is just the identity matrix.
 
     If return_mat is True, function returns tuple of G,P,Y,B too.
