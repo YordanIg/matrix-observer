@@ -356,6 +356,11 @@ def plot_basemap_errs():
 # Monopole reconstruction error figure.
 ################################################################################
 def plot_monopole_reconstruction_err():
+    """
+    Showcase the monopole reconstruction error when we reconstruct only modes
+    up to lmod for GSMA truncated at lmod, and when we reconstruct only modes
+    up to lmod for a non-truncated GSMA.
+    """
     # Generate single-frequency noisy foregrounds.
     fg = SM.foreground_gsma_alm_nsidelo(nu=70, lmax=32, nside=32, use_mat_Y=True)
 
@@ -385,25 +390,67 @@ def plot_monopole_reconstruction_err():
 
         # Reconstruct the alm for each truncation case.
         alm_rec_truncs = [mat_W_i @ d_noise_i for mat_W_i,d_noise_i in zip(mat_W_truncs,d_noise_truncs)]
+        alm_rec_truncs_nonoise = [mat_W_i @ d_i for mat_W_i,d_i in zip(mat_W_truncs,d_truncs)]
 
         # Visualise the reconstruction error for the monopole in each case.
         mon_err = [1e3*np.abs((alm_rec_i[0]-fg_i[0])*alm2temp) for fg_i,alm_rec_i in zip(fg_truncs,alm_rec_truncs)]
-        return mon_err
+        mon_err_nonoise = [1e3*np.abs((alm_rec_i[0]-fg_i[0])*alm2temp) for fg_i,alm_rec_i in zip(fg_truncs,alm_rec_truncs_nonoise)]
+        return mon_err, mon_err_nonoise
     
-    mon_err7 = calc_mon_err([-3*26, -2*26, -1*26, 0, 1*26, 2*26, 3*26])
-    mon_err5 = calc_mon_err([-2*26, -1*26, 0, 1*26, 2*26])
-    mon_err3 = calc_mon_err([-1*26, 0, 26])
+    mon_err7, mon_err_nonoise7 = calc_mon_err([-3*26, -2*26, -1*26, 0, 1*26, 2*26, 3*26])
+    mon_err5, mon_err_nonoise5 = calc_mon_err([-2*26, -1*26, 0, 1*26, 2*26])
+    mon_err3, mon_err_nonoise3 = calc_mon_err([-1*26, 0, 26])
+
+    # Generate single-frequency noisy foregrounds.
+    fg = SM.foreground_gsma_alm_nsidelo(nu=50, lmax=32, nside=32, use_mat_Y=True)
+
+    # Truncate this at various ell values.
+    ell_arr = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,12]
+    N_arr   = [RS.get_size(ell) for ell in ell_arr]
+
+    # Generate observation matrix for 5 antennas.
+    times = np.linspace(0, 24, 24, endpoint=False)
+    narrow_cosbeam = lambda x: BF.beam_cos(x, 0.8)
+    mat_A, (mat_G, mat_P, mat_Y, mat_B) = FM.calc_observation_matrix_multi_zenith_driftscan(nside=32, lmax=32, 
+                                                    lats=np.array([-26*2, -26, 0, 26, 26*2]), 
+                                                    times=times, beam_use=narrow_cosbeam, return_mat=True)
+
+    # Observe for various ell values
+    mat_A_truncs = [mat_A[:,:N] for N in N_arr]
+    d = mat_A@fg
+
+    # Add noise.
+    d_noise, d_cov = SM.add_noise(d, dnu=1, Ntau=len(times), t_int=200, seed=456)
+
+    # Compute the maxlike estimator matrix for each lmod.
+    mat_W_truncs = [MM.calc_ml_estimator_matrix(mat_A_i, d_cov, cond=True) for mat_A_i in mat_A_truncs]
+
+    # Reconstruct the alm for each truncation case.
+    alm_rec_truncs = [mat_W_i @ d_noise for mat_W_i in mat_W_truncs]
+
+    # Visualise the reconstruction error for the monopole in each case.
+    mon_err = [1e3*np.abs((alm_rec_i[0]-fg[0])*alm2temp) for alm_rec_i in alm_rec_truncs]
     
-    fig, ax = plt.subplots(figsize=(4.2, 3.5))
+    fig, ax = plt.subplots(1, 2, figsize=(6.5, 3))
     lss = [':', '--', '-.']
-    ax.plot(ell_arr,mon_err7, label=r'$N_\mathrm{ant}$=7', linestyle=lss[0])
-    ax.plot(ell_arr,mon_err5, label=r'$N_\mathrm{ant}$=5', linestyle=lss[1])
-    ax.plot(ell_arr,mon_err3, label=r'$N_\mathrm{ant}$=3', linestyle=lss[2])
-    ax.set_xlabel(r"$l_\mathrm{mod}$")
-    ax.set_ylabel(r"Monopole Reconstruction Error [mK]")
-    ax.set_xlim(0,12)
-    ax.set_ylim(0, 130)
-    ax.legend()
+    ax[0].semilogy(ell_arr,mon_err_nonoise7, linestyle=lss[0], color='k', alpha=0.4)
+    ax[0].plot(ell_arr,mon_err_nonoise5, linestyle=lss[1], color='k', alpha=0.4)
+    ax[0].plot(ell_arr,mon_err_nonoise3, linestyle=lss[2], color='k', alpha=0.4)
+    ax[0].plot(ell_arr,mon_err7, label=r'$N_\mathrm{ant}$=7', linestyle=lss[0])
+    ax[0].plot(ell_arr,mon_err5, label=r'$N_\mathrm{ant}$=5', linestyle=lss[1])
+    ax[0].plot(ell_arr,mon_err3, label=r'$N_\mathrm{ant}$=3', linestyle=lss[2])
+    ax[0].axhline(y=130, color='k')
+    ax[0].set_xlabel(r"$l_\mathrm{mod}$")
+    ax[0].set_ylabel(r"Monopole Reconstruction Error [mK]")
+    ax[0].set_xlim(0,12)
+    ax[0].set_ylim(0.004, 1000)#(0.4, 1000)
+    ax[0].legend()
+
+    ax[1].semilogy(ell_arr,mon_err)
+    ax[1].set_xlabel(r"$l_\mathrm{mod}$")
+    ax[1].set_xlim(0,12)
+
+    fig.tight_layout()
     plt.savefig("fig/monopole_reconstruction_err.pdf")
     plt.show()
 
