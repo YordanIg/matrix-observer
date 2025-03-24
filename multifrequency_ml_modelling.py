@@ -314,24 +314,39 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
+
+    Works for chromatic and achromatic observations, using a narrowed cosine
+    beam or a cosine beam with frequency varying width, depending on the 
+    chromaticity case.
+
+    For some reason when Ntau!=None the ML reconstruction doesn't work.
     """
-    # Model and observation params
+    # Mapmaking pipeline parameters.
     nside   = 32
     lmax    = 32
     lmod    = 5
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
-    if lats is None:
-        lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])#np.linspace(-80, 80, 100)#
-    times = np.linspace(0, 24, 24, endpoint=False)#np.linspace(0, 24, 144, endpoint=False)  # 144 = 10 mins per readout
+
+    # Observation and binning params.
+    Ntau  = None
+    Nt    = 24
+    times = np.linspace(0, 24, Nt, endpoint=False)
     nuarr = np.linspace(50,100,51)
-    cm21_params     = OBS.cm21_params
-    narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
+    if lats is None:
+        lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
+
+    # Cosmological parameters.
+    cm21_params = OBS.cm21_params
+    
+    # Foreground correction reference frequency.
     err_ref = 70
 
     # Generate foreground and 21-cm signal alm
-    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err, ref_freq=err_ref), err_type=err_type, seed=100, meancorr=False)
     cm21_alm = SM.cm21_gauss_mon_alm(nu=nuarr, lmax=lmax, params=cm21_params)
+    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, 
+        use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err, ref_freq=err_ref), 
+        err_type=err_type, seed=100, meancorr=False)
     fid_alm  = fg_alm + cm21_alm
 
     # Generate observation matrix for the modelling and for the observations.
@@ -340,10 +355,11 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
             chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
         else:
             chromfunc = BF.fwhm_func_tauscher
-        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=Ntau, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
         mat_A_mod = mat_A[:,:Nlmod]
     elif chrom is None:
-        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
+        narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
+        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
         mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
         mat_A_mod = mat_A[:,:Nlmod]
     
@@ -413,7 +429,7 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
     fg_mon_p0 = [15, 2.5]
     fg_mon_p0 += [.001]*(Npoly-2)
-    cm21_mon_p0 = OBS.cm21_params
+    cm21_mon_p0 = cm21_params
     bounds = [[1, 25], [1.5, 3.5]]
     bounds += [[-2, 2.1]]*(Npoly-2)
     bounds += [[-0.4, -0.02], [62, 88], [6, 14]]
