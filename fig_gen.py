@@ -288,6 +288,10 @@ def plot_fwhm():
 def plot_basemap_errs():
     def simp_basemap_err_to_delta(bmerr, ref_freq=70):
         return (bmerr/100)/np.log(408/ref_freq)
+    def gaussian(x, sig, Nside=32):
+        Npix = hp.nside2npix(Nside)
+        return 2.35*Npix/(sig*np.sqrt(2*np.pi)) * np.exp(-0.5*x**2/sig**2)
+
     nuarr = OBS.nuarr
     delta_5  = simp_basemap_err_to_delta(5, ref_freq=70)
     delta_10 = simp_basemap_err_to_delta(10, ref_freq=70)
@@ -339,10 +343,10 @@ def plot_basemap_errs():
     ax[0].set_ylim(0, 1e2*np.max(percentage_err_20))
 
     bins = np.linspace(-50,50,41)
-    ax[1].hist(1e2*(err_mean_20[0]-err_20[0])/err_mean_20[0], bins=bins, ec='k', alpha=0.6, color='C1', label=' 20%')
-    #ax[1].hist(1e2*(err_mean_15[0]-err_15[0])/err_mean_15[0], bins=bins, ec='k', alpha=0.6, color='C2', label=' 15%')
-    ax[1].hist(1e2*(err_mean_10[0]-err_10[0])/err_mean_10[0], bins=bins, ec='k', alpha=0.6, color='C0', label=' 10%')
-    #ax[1].hist(1e2*(err_mean_5[0]-err_5[0])/err_mean_5[0], bins=bins, ec='k', alpha=0.6, color='C0', label=' 5%')
+    ax[1].hist(1e2*(err_mean_20[0]-err_20[0])/err_mean_20[0], bins=bins, ec='k', alpha=0.5, color='C1', label=' 20%')
+    ax[1].plot(bins, gaussian(bins, 20), color='C1',linewidth=1.5)
+    ax[1].hist(1e2*(err_mean_10[0]-err_10[0])/err_mean_10[0], bins=bins, ec='k', alpha=0.5, color='C0', label=' 10%')
+    ax[1].plot(bins, gaussian(bins, 10), color='C0',linewidth=1.5)
     ax[1].set_xlim(-50,50)
     ax[1].set_xlabel("Pixel Temperature Deviation [%]")
     ax[1].set_ylabel("Count")
