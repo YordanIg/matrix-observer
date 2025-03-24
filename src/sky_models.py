@@ -128,14 +128,15 @@ def cm21_gauss_mondip_alm(nu, lmax, params = None):
     #mock monopole signal
     alm[0] = np.sqrt(4*np.pi)
 
-    #mock dipole signal
-    norm = np.sqrt(4.0 * np.pi / 3.0)
-    a10  = norm * np.cos(delta)
-    a11p = norm * np.sin(delta) * np.cos(alpha)
-    a11m = norm * np.sin(delta) * np.sin(alpha)
-    alm[1] += a11m
-    alm[2] += a10
-    alm[3] += a11p
+    if beta != 0:
+        #mock dipole signal
+        norm = np.sqrt(4.0 * np.pi / 3.0)
+        a10  = norm * np.cos(delta)
+        a11p = norm * np.sin(delta) * np.cos(alpha)
+        a11m = norm * np.sin(delta) * np.sin(alpha)
+        alm[1] += a11m
+        alm[2] += a10
+        alm[3] += a11p
 
     #calculate the monopole and dipole values
     tb, tb_dip = cm21_dipoleT(nu, A, nu0, dnu, beta)
