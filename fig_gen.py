@@ -222,38 +222,23 @@ def plot_basemap_errs():
         return 2.35*Npix/(sig*np.sqrt(2*np.pi)) * np.exp(-0.5*x**2/sig**2)
 
     nuarr = OBS.nuarr
-    delta_5  = simp_basemap_err_to_delta(5, ref_freq=70)
     delta_10 = simp_basemap_err_to_delta(10, ref_freq=70)
-    delta_15 = simp_basemap_err_to_delta(15, ref_freq=70)
     delta_20 = simp_basemap_err_to_delta(20, ref_freq=70)
-    #percentage_err_5  = (nuarr/408)**(-delta_5) - 1
-    percentage_err_10 = (nuarr/408)**(-delta_10) - 1
-    #percentage_err_15 = (nuarr/408)**(-delta_15) - 1
-    percentage_err_20 = (nuarr/408)**(-delta_20) - 1
+
+    delta_to_err = lambda delta: np.log(408/nuarr)*delta
+    percentage_err_10 = delta_to_err(delta_10)
+    percentage_err_20 = delta_to_err(delta_20)
 
     select_freqs = np.array([60,75,90])
     gsma  = SM.foreground_gsma_nsidelo(nu=select_freqs, nside=32)
-    _, err_5 = SM.foreground_gsma_alm_nsidelo(nu=select_freqs, lmax=32, nside=32, original_map=True, delta=delta_5)
     _, err_10 = SM.foreground_gsma_alm_nsidelo(nu=select_freqs, lmax=32, nside=32, original_map=True, delta=delta_10)
-    _, err_15 = SM.foreground_gsma_alm_nsidelo(nu=select_freqs, lmax=32, nside=32, original_map=True, delta=delta_15)
     _, err_20 = SM.foreground_gsma_alm_nsidelo(nu=select_freqs, lmax=32, nside=32, original_map=True, delta=delta_20)
-    err_mean_5 = []
-    for nu, gsma_map in zip(select_freqs, gsma):
-        sigma_T   = delta_5 * np.log(408/nu)
-        temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
-        err_mean_5.append(temp_mean_block)
 
     err_mean_10 = []
     for nu, gsma_map in zip(select_freqs, gsma):
         sigma_T   = delta_10 * np.log(408/nu)
         temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
         err_mean_10.append(temp_mean_block)
-
-    err_mean_15 = []
-    for nu, gsma_map in zip(select_freqs, gsma):
-        sigma_T   = delta_15 * np.log(408/nu)
-        temp_mean_block = (gsma_map - T_CMB) * np.exp(sigma_T**2/2) + T_CMB
-        err_mean_15.append(temp_mean_block)
     
     err_mean_20 = []
     for nu, gsma_map in zip(select_freqs, gsma):
@@ -262,12 +247,10 @@ def plot_basemap_errs():
         err_mean_20.append(temp_mean_block)
 
     fig, ax = plt.subplots(1, 2, figsize=(6,2.8))
-    #ax[0].plot(nuarr, 1e2*percentage_err_5, label='5%')
     ax[0].plot(nuarr, 1e2*percentage_err_10, label='10%')
-    #ax[0].plot(nuarr, 1e2*percentage_err_15, label='15%')
     ax[0].plot(nuarr, 1e2*percentage_err_20, label='20%')
     ax[0].set_xlabel("Frequency [MHz]")
-    ax[0].set_ylabel("Approximate Basemap Error [%]")
+    ax[0].set_ylabel("Fractional Std Dev [%]")
     ax[0].set_xlim(nuarr[0], nuarr[-1])
     ax[0].set_ylim(0, 1e2*np.max(percentage_err_20))
 
@@ -277,7 +260,7 @@ def plot_basemap_errs():
     ax[1].hist(1e2*(err_mean_10[0]-err_10[0])/err_mean_10[0], bins=bins, ec='k', alpha=0.5, color='C0', label=' 10%')
     ax[1].plot(bins, gaussian(bins, 10), color='C0',linewidth=1.5)
     ax[1].set_xlim(-50,50)
-    ax[1].set_xlabel("Pixel Temperature Deviation [%]")
+    ax[1].set_xlabel("Fractional Pixel Deviation [%]")
     ax[1].set_ylabel("Count")
     ax[1].legend()
     fig.tight_layout()
