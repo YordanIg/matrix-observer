@@ -354,7 +354,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
         lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
     Ntau  = 6
     cm21_mon_pars = [-0.2, 80.0, 5.0]
-    delta = SM.basemap_err_to_delta(percent_err=basemap_err)
+    delta = SM.basemap_err_to_delta(percent_err=basemap_err, ref_freq=70)
 
     dnoisy, noise_covar, mat_A, mat_Y, params = OBS.fiducial_obs(
         uniform_noise=True,
@@ -372,27 +372,41 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
 
     # Compute the 0<l<lmod alm polynomial parameters as an initial guess for the
     # inference, and store the lmod<l<lmax alms to use as the fiducial correction.
-    nuarr = NRI.nuarr
-    a = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=delta)
-    a_sep = np.array(np.split(a, len(nuarr)))
-    Nlmod = RS.get_size(lmax=lmod)
-    Nlmax = RS.get_size(lmax=lmax)
+    nuarr          = NRI.nuarr
+    a              = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=delta)
+    a_sep          = np.array(np.split(a, len(nuarr)))
+    Nlmod          = RS.get_size(lmax=lmod)
+    Nlmax          = RS.get_size(lmax=lmax)
     alms_for_guess = a_sep.T[:Nlmod]
-    fitlist=_fit_alms(nuarr=nuarr, alm_list=alms_for_guess, Npoly=Npoly)
-    theta_guess = fitlist.flatten()
+    fitlist        =_fit_alms(nuarr=nuarr, alm_list=alms_for_guess, Npoly=Npoly)
+    theta_guess    = fitlist.flatten()
     print(fitlist.flatten())
 
     # Generate a missing-modes correction analytically.
-    mat_A_unmod = BlockMatrix(mat_A.block[:,:,Nlmod:])
+    mat_A_unmod       = BlockMatrix(mat_A.block[:,:,Nlmod:])
     alm_mean, alm_cov = SM.gsma_corr(lmod, lmax, nside, nuarr, basemap_err)
-    covar_corr = mat_A_unmod @ alm_cov @ mat_A_unmod.T
-    alms_for_corr = np.reshape(alm_mean, (Nlmax-Nlmod, len(nuarr)))
-    total_inv_cov = (noise_covar + covar_corr).inv
-    total_inv_cov_np = total_inv_cov.matrix
+    covar_corr        = mat_A_unmod @ alm_cov @ mat_A_unmod.T
+    alms_for_corr     = np.reshape(alm_mean, (Nlmax-Nlmod, len(nuarr)))
+    total_inv_cov     = (noise_covar + covar_corr).inv
+    total_inv_cov_np  = total_inv_cov.matrix
 
-    # Instantiate the model.
-    mod_fg = FM.genopt_alm_plfid_forward_model(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
-    mod = FM.genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
+    # Instantiate the models.
+    mod_fg = FM.genopt_alm_plfid_forward_model(
+        nuarr, 
+        observation_mat=mat_A, 
+        fid_alm=alms_for_corr, 
+        Npoly=Npoly, 
+        lmod=lmod, 
+        lmax=lmax
+    )
+    mod = FM.genopt_alm_plfid_forward_model_with21cm(
+        nuarr, 
+        observation_mat=mat_A, 
+        fid_alm=alms_for_corr, 
+        Npoly=Npoly, 
+        lmod=lmod, 
+        lmax=lmax
+    )
     priors = [[-10, 25], [1.5, 3.5]]
     priors += [[-100, 100.1]]*(Npoly-2)
     priors = priors*Nlmod
@@ -412,19 +426,23 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
     
     # Add the 21-cm parameters to theta_guess.
     theta_guess = np.append(theta_guess, cm21_mon_pars)
-    priors = [[-10, 25], [1.5, 3.5]]
-    priors += [[-100, 100]]*(Npoly-2)
-    priors = priors*Nlmod
-    priors += [[-0.5, -0.01], [60, 90], [1, 8]]
-    priors = np.array(priors)
+    priors      = [[-10, 25], [1.5, 3.5]]
+    priors     += [[-100, 100]]*(Npoly-2)
+    priors      = priors*Nlmod
+    priors     += [[-0.5, -0.01], [60, 90], [1, 8]]
+    priors      = np.array(priors)
     theta_guess = INF.prior_checker(priors, theta_guess)
     
 
     nwalkers, fg_dim = 64, Npoly*Nlmod
-    ndim = fg_dim + len(cm21_mon_pars)
-    pos = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
-    sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior_vectors, 
-                        args=(dnoisy.vector, total_inv_cov_np, mod, priors))
+    ndim             = fg_dim + len(cm21_mon_pars)
+    pos              = theta_guess*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+    sampler = EnsembleSampler(
+        nwalkers, 
+        ndim, 
+        INF.log_posterior_vectors, 
+        args=(dnoisy.vector, total_inv_cov_np, mod, priors)
+    )
     _=sampler.run_mcmc(pos, nsteps=steps, progress=True)
 
     if savetag is None:
