@@ -352,7 +352,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
     noise = 0.01
     if lats is None:
         lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
-    Ntau  = 6
+    Ntau  = None
     cm21_mon_pars = [-0.2, 80.0, 5.0]
     delta = SM.basemap_err_to_delta(percent_err=basemap_err, ref_freq=70)
 
@@ -383,26 +383,27 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
     print(fitlist.flatten())
 
     # Generate a missing-modes correction analytically.
+    mat_A_mod         = mat_A[:,:Nlmod]
     mat_A_unmod       = BlockMatrix(mat_A.block[:,:,Nlmod:])
     alm_mean, alm_cov = SM.gsma_corr(lmod, lmax, nside, nuarr, basemap_err, ref_freq=70)
     covar_corr        = mat_A_unmod @ alm_cov @ mat_A_unmod.T
-    alms_for_corr     = np.reshape(alm_mean, (Nlmax-Nlmod, len(nuarr)))
+
+    # Compute the correction.
     total_inv_cov     = (noise_covar + covar_corr).inv
     total_inv_cov_np  = total_inv_cov.matrix
-    
+    dnoisy_corr       = dnoisy - mat_A_unmod @ alm_mean
+
     # Instantiate the models.
     mod_fg = FM.genopt_alm_plfid_forward_model(
         nuarr, 
-        observation_mat=mat_A, 
-        fid_alm=alms_for_corr, 
+        observation_mat=mat_A_mod,
         Npoly=Npoly, 
         lmod=lmod, 
         lmax=lmax
     )
     mod = FM.genopt_alm_plfid_forward_model_with21cm(
         nuarr, 
-        observation_mat=mat_A, 
-        fid_alm=alms_for_corr, 
+        observation_mat=mat_A_mod,
         Npoly=Npoly, 
         lmod=lmod, 
         lmax=lmax
@@ -419,7 +420,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
             def mod_cf(nuarr, *theta):
                 theta = np.array(theta)
                 return mod_fg(theta)
-            res = curve_fit(mod_cf, nuarr, dnoisy.vector, p0=theta_guess, method="dogbox", bounds=bounds)
+            res = curve_fit(mod_cf, nuarr, dnoisy_corr.vector, p0=theta_guess, method="dogbox", bounds=bounds)
             theta_guess = res[0]
         except RuntimeError:
             print("failed to estimate optimal parameters using curve_fit")
@@ -447,7 +448,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
 
     if savetag is None:
         chain = sampler.get_chain(flat=True, discard=burn_in)
-        _plot_inference(chain, dnoisy.vector, mod, err)
+        _plot_inference(chain, dnoisy_corr.vector, mod, err)
     else:
         print(f"SAVING CHAIN AS lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_chain.npy")
         print(f"SAVING DATA AS lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_data.npy")
@@ -467,7 +468,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
             "delta" : delta
         }
         np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_chain.npy", chain)
-        np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_data.npy", dnoisy.vector)
+        np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_data.npy", dnoisy_corr.vector)
         np.save(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_errs.npy", np.sqrt(noise_covar.diag))
         with open(f"saves/Alm_corrected/lmax{lmax}_lmod{lmod}_Npoly{Npoly}_{savetag}_pars.pkl", 'wb') as f:
             pickle.dump(pars, f)
@@ -552,8 +553,10 @@ def plot_chain_with21cm(lmax, lmod, Npoly, savetag, burn_in=1000, plot_residuals
     a_sep = np.array(np.split(a, len(pars['nuarr'])))
     Nlmod = RS.get_size(lmax=lmod)
     alms_for_corr  = a_sep.T[Nlmod:]
+    mat_A_mod         = mat_A[:,:Nlmod]
+    mat_A_unmod       = BlockMatrix(mat_A.block[:,:,Nlmod:])
 
-    mod = FM.genopt_alm_plfid_forward_model_with21cm(pars['nuarr'], observation_mat=mat_A, fid_alm=alms_for_corr, Npoly=Npoly, lmod=lmod, lmax=lmax)
+    mod = FM.genopt_alm_plfid_forward_model_with21cm(pars['nuarr'], observation_mat=mat_A_mod, Npoly=Npoly, lmod=lmod, lmax=lmax)
 
     if plot_residuals:
         _plot_inference(chain=chain_flat, dnoisy_vector=data, model=mod, errors=errs)
