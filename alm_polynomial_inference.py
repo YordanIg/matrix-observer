@@ -384,12 +384,12 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
 
     # Generate a missing-modes correction analytically.
     mat_A_unmod       = BlockMatrix(mat_A.block[:,:,Nlmod:])
-    alm_mean, alm_cov = SM.gsma_corr(lmod, lmax, nside, nuarr, basemap_err)
+    alm_mean, alm_cov = SM.gsma_corr(lmod, lmax, nside, nuarr, basemap_err, ref_freq=70)
     covar_corr        = mat_A_unmod @ alm_cov @ mat_A_unmod.T
     alms_for_corr     = np.reshape(alm_mean, (Nlmax-Nlmod, len(nuarr)))
     total_inv_cov     = (noise_covar + covar_corr).inv
     total_inv_cov_np  = total_inv_cov.matrix
-
+    
     # Instantiate the models.
     mod_fg = FM.genopt_alm_plfid_forward_model(
         nuarr, 
