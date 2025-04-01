@@ -488,7 +488,7 @@ def genopt_alm_pl_forward_model(nuarr, observation_mat, Npoly=2, lmax=32):
 
     return model
 
-def genopt_alm_plfid_forward_model(nuarr, observation_mat, fid_alm, Npoly=2, lmod=1, lmax=32):
+def genopt_alm_plfid_forward_model(nuarr, observation_mat, Npoly=2, lmod=1, lmax=32):
     """
     Return a function that forward-models (without noise) the 
     Alm polynomial model, correcting with the fiducial alm values above lmod. 
@@ -502,10 +502,9 @@ def genopt_alm_plfid_forward_model(nuarr, observation_mat, fid_alm, Npoly=2, lmo
         like (c_{00,0}, c_{00,1}, ..., c_{1-1,0}, c_{1-1,1}, ...)
         for c_{lm,n}, where n is the polynomial index.
     """
-    if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
-        raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
+    if observation_mat.block_shape[1] != RS.get_size(lmax=lmod):
+        raise ValueError(f"observation matrix size should correspond to lmod={lmod}")
     observation_mat = observation_mat.matrix
-    Nlmax = RS.get_size(lmax=lmax)
     Nlmod = RS.get_size(lmax=lmod)
     Nnuarr = len(nuarr)
     
@@ -513,7 +512,7 @@ def genopt_alm_plfid_forward_model(nuarr, observation_mat, fid_alm, Npoly=2, lmo
     def model(theta):
         # Compute the alm vector.
         theta_blocks = np.reshape(theta, (Nlmod, Npoly))
-        alm_blocks = np.zeros((Nlmax, Nnuarr))
+        alm_blocks = np.zeros((Nlmod, Nnuarr))
         for ii, block in enumerate(theta_blocks):
             A, alpha = block[:2]
             zetas    = np.zeros(len(block)-2)
@@ -527,8 +526,6 @@ def genopt_alm_plfid_forward_model(nuarr, observation_mat, fid_alm, Npoly=2, lmo
             alm_blocks[ii,:] = alm_term
         
         alm_blocks[0] += np.sqrt(4*np.pi)*T_CMB
-        alm_blocks[Nlmod:] = fid_alm
-
         final_alm_vec = alm_blocks.T
 
         # Multiply this by the observation matrix.
@@ -537,7 +534,7 @@ def genopt_alm_plfid_forward_model(nuarr, observation_mat, fid_alm, Npoly=2, lmo
 
     return model
 
-def genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat, fid_alm, Npoly=2, lmod=1, lmax=32):
+def genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat, Npoly=2, lmod=1, lmax=32):
     """
     Return a function that forward-models (without noise) the 
     Alm polynomial model, correcting with the fiducial alm values above lmod. 
@@ -551,10 +548,9 @@ def genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat, fid_alm, Npo
         like (c_{00,0}, c_{00,1}, ..., c_{1-1,0}, c_{1-1,1}, ...)
         for c_{lm,n}, where n is the polynomial index.
     """
-    if observation_mat.block_shape[1] != RS.get_size(lmax=lmax):
-        raise ValueError(f"observation matrix size should correspond to lmax={lmax}")
+    if observation_mat.block_shape[1] != RS.get_size(lmax=lmod):
+        raise ValueError(f"observation matrix size should correspond to lmod={lmod}")
     observation_mat = observation_mat.matrix
-    Nlmax = RS.get_size(lmax=lmax)
     Nlmod = RS.get_size(lmax=lmod)
     Nnuarr = len(nuarr)
     
@@ -563,7 +559,7 @@ def genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat, fid_alm, Npo
         # Compute the alm vector.
         theta_cm21 = theta[-3:]
         theta_blocks = np.reshape(theta[:-3], (Nlmod, Npoly))
-        alm_blocks = np.zeros((Nlmax, Nnuarr))
+        alm_blocks = np.zeros((Nlmod, Nnuarr))
         for ii, block in enumerate(theta_blocks):
             A, alpha = block[:2]
             zetas    = np.zeros(len(block)-2)
@@ -577,7 +573,6 @@ def genopt_alm_plfid_forward_model_with21cm(nuarr, observation_mat, fid_alm, Npo
             alm_blocks[ii,:] = alm_term
         
         alm_blocks[0] += np.sqrt(4*np.pi)*(T_CMB + cm21_globalT(nu=nuarr, A=theta_cm21[0], nu0=theta_cm21[1], dnu=theta_cm21[2]))
-        alm_blocks[Nlmod:] = fid_alm
 
         final_alm_vec = alm_blocks.T
 
