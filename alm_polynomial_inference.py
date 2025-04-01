@@ -349,16 +349,15 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
     # Generate the data.
     nside = 32
     times = np.linspace(0, 24, 12, endpoint=False)
-    noise = 0.01
     if lats is None:
         lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
-    Ntau  = None
+    Ntau  = len(times)
     cm21_mon_pars = [-0.2, 80.0, 5.0]
     delta = SM.basemap_err_to_delta(percent_err=basemap_err, ref_freq=70)
 
     dnoisy, noise_covar, mat_A, mat_Y, params = OBS.fiducial_obs(
-        uniform_noise=True,
-        unoise_K = noise,
+        uniform_noise=False,
+        tint = 200,
         times = times,
         Ntau = Ntau,
         lmax = lmax,
