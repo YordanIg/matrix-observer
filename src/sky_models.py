@@ -432,7 +432,7 @@ def foreground_gsma_alm(nu, lmax=40, nside=None, map=False):
     return _gsma_indexes_to_alm(nu, T_408=T_408, indexes=indexes, lmax=lmax, 
                                 nside=nside, map=map)
 
-def basemap_err_to_delta(percent_err, ref_freq=230):
+def basemap_err_to_delta(percent_err, ref_freq=70):
     """
     Roughly calculate the delta error in GSMA power law index required for a 
     given basemap error, taking the basemap error AS A PERCENTAGE.
