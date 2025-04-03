@@ -310,7 +310,7 @@ def nontrivial_obs_memopt(chrom=None, missing_modes=False, basemap_err=0, reg_de
         _plot_results(nuarr, Nlmax, Nlmod, rec_alm, alm_error, fid_alm, cm21_alm, res)
 
 
-def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False, steps=10000, burn_in=3000, plotml=True):
+def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False, steps=10000, burn_in=3000, plotml=True, lmax=None, lmod=None):
     """
     A memory-friendly version of nontrivial_obs which computes the reconstruction
     of each frequency seperately, then brings them all together.
@@ -323,8 +323,10 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
     """
     # Mapmaking pipeline parameters.
     nside   = 32
-    lmax    = 32
-    lmod    = 5
+    if lmax is None:
+        lmax = 32
+    if lmod is None:
+        lmod = 5
     Nlmax   = RS.get_size(lmax)
     Nlmod   = RS.get_size(lmod)
 
