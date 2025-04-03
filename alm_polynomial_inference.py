@@ -348,11 +348,11 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
     """
     # Generate the data.
     nside = 32
-    times = np.linspace(0, 24, 12, endpoint=False)
+    times = np.linspace(0, 24, 24, endpoint=False)
     if lats is None:
         lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
     Ntau  = len(times)
-    cm21_mon_pars = [-0.2, 80.0, 5.0]
+    cm21_mon_pars = OBS.cm21_params
     delta = SM.basemap_err_to_delta(percent_err=basemap_err, ref_freq=70)
 
     dnoisy, noise_covar, mat_A, mat_Y, params = OBS.fiducial_obs(
@@ -429,7 +429,7 @@ def compare_fm_fid_reconstruction_with21cm(lmax, lmod, Npoly, lats=None, steps=3
     priors      = [[-10, 25], [1.5, 3.5]]
     priors     += [[-100, 100]]*(Npoly-2)
     priors      = priors*Nlmod
-    priors     += [[-0.5, -0.01], [60, 90], [1, 8]]
+    priors     += [[-0.5, -0.01], [60, 90], [5, 15]]
     priors      = np.array(priors)
     theta_guess = INF.prior_checker(priors, theta_guess)
     
@@ -551,9 +551,7 @@ def plot_chain_with21cm(lmax, lmod, Npoly, savetag, burn_in=1000, plot_residuals
     a = SM.foreground_gsma_alm_nsidelo(nu=pars['nuarr'], lmax=lmax, nside=pars['nside'], use_mat_Y=True)
     a_sep = np.array(np.split(a, len(pars['nuarr'])))
     Nlmod = RS.get_size(lmax=lmod)
-    alms_for_corr  = a_sep.T[Nlmod:]
-    mat_A_mod         = mat_A[:,:Nlmod]
-    mat_A_unmod       = BlockMatrix(mat_A.block[:,:,Nlmod:])
+    mat_A_mod = mat_A[:,:Nlmod]
 
     mod = FM.genopt_alm_plfid_forward_model_with21cm(pars['nuarr'], observation_mat=mat_A_mod, Npoly=Npoly, lmod=lmod, lmax=lmax)
 
@@ -568,7 +566,7 @@ def plot_chain_with21cm(lmax, lmod, Npoly, savetag, burn_in=1000, plot_residuals
     cm21_temps_mean = np.mean(cm21_temps, axis=0)
     cm21_temps_std = np.std(cm21_temps, axis=0)
 
-    plt.plot(pars['nuarr'], FM.cm21_globalT(nu=pars['nuarr']), label='fiducial', linestyle=':', color='k')
+    plt.plot(pars['nuarr'], FM.cm21_globalT(pars['nuarr'], *OBS.cm21_params), label='fiducial', linestyle=':', color='k')
     plt.fill_between(
         pars['nuarr'],
         cm21_temps_mean-cm21_temps_std, 
