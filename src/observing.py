@@ -15,8 +15,11 @@ Nfreq = 51
 nuarr = np.linspace(50,100,Nfreq)
 
 # Fiducial 21-cm parameters
-cm21_params_old = [-0.2, 80.0, 5.0]
-cm21_params = [-.13242, 68.57, 9.399]
+cm21_params_old     = [-0.2, 80.0, 5.0]
+cm21_params         = [-.13242, 68.57, 9.399]
+cm21_dip_mag        = 1.2e-3
+cm21_dip_centre     = np.radians([90-48.26, 263.99])
+cm21_params_mondip  = [*cm21_params, cm21_dip_mag, *cm21_dip_centre]
 
 # Default parameters of the observation and fiducial sky.
 default_pars = {
