@@ -55,6 +55,65 @@ def fg_cm21_polymod(nuarr, *theta):
     theta_21 = theta[-3:]
     return fg_polymod_opt(nuarr, *theta_fg) + cm21_mod(nuarr, *theta_21)
 
+def cm21_dip_mod(nuarr, mag, *theta_21):
+    """
+    Return the 21-cm dipole magnitude:
+        magnitude = mag*(T_mon - nu d T_mon / d nu)
+    """
+    T_mon = cm21_mod(nuarr, *theta_21)
+    T_dip = mag * (T_mon - nuarr * np.gradient(T_mon, nuarr))
+    return T_dip
+
+def fg_cm21dip_polymod(nuarr, *theta):
+    """
+    Foreground + 21-cm dipole. 
+    """
+    theta_fg = theta[:-4]
+    theta_mag = theta[-4]
+    theta_21 = theta[-3:]
+    return fg_polymod_opt(nuarr, *theta_fg) + cm21_dip_mod(nuarr, theta_mag, *theta_21)
+
+def fg_cm21_mondip_mod(nuarr, Npoly, *theta):
+    """
+    Fit the monopole and 3 dipole components of the 21-cm signal, with 
+    independent foregrounds mixed in with each of these components. Each 
+    foreground is a polynomial of order Npoly. The theta_21_mon component is
+    length-3, and the theta_21_dip components are each length-1.
+
+    theta = [*theta_fg_mon, *theta_21_mon, *theta_fg_dip0, *theta_21_dip0, 
+             *theta_fg_dip1, *theta_21_dip1, *theta_fg_dip2, *theta_21_dip2]
+    Returns
+    -------
+        Array of length 3xlen(nuarr), containing spectral components of monopole,
+        and 3 dipole components.
+    """
+    # Unpack all parameters.
+    theta_fg_mon = theta[:Npoly]
+    theta_21_mon = theta[Npoly:Npoly+3]
+    theta_fg_dip0 = theta[Npoly+3:Npoly+3+Npoly]
+    theta_21_dip0 = theta[Npoly+3+Npoly:Npoly+3+Npoly+1]
+    theta_fg_dip1 = theta[Npoly+3+Npoly+1:Npoly+3+Npoly+1+Npoly]
+    theta_21_dip1 = theta[Npoly+3+Npoly+1+Npoly:Npoly+3+Npoly+1+Npoly+1]
+    theta_fg_dip2 = theta[Npoly+3+Npoly+1+Npoly+1:Npoly+3+Npoly+1+Npoly+1+Npoly]
+    theta_21_dip2 = theta[Npoly+3+Npoly+1+Npoly+1:Npoly+3+Npoly+1+Npoly+1+Npoly+1]
+
+    # Calculate the monopole and dipole components.
+    fg_mon = fg_polymod_opt(nuarr, *theta_fg_mon)
+    cm21_mon = cm21_mod(nuarr, *theta_21_mon)
+    fg_dip0 = fg_polymod_opt(nuarr, *theta_fg_dip0)
+    cm21_dip0 = cm21_dip_mod(nuarr, theta_21_dip0, *theta_21_mon)
+    fg_dip1 = fg_polymod_opt(nuarr, *theta_fg_dip1)
+    cm21_dip1 = cm21_dip_mod(nuarr, theta_21_dip1, *theta_21_mon)
+    fg_dip2 = fg_polymod_opt(nuarr, *theta_fg_dip2)
+    cm21_dip2 = cm21_dip_mod(nuarr, theta_21_dip2, *theta_21_mon)
+    total = fg_mon + cm21_mon
+    total = np.append(total, fg_dip0+cm21_dip0)
+    total = np.append(total, fg_dip1+cm21_dip1)
+    total = np.append(total, fg_dip2+cm21_dip2)
+    return total
+
+    
+
 ################################################################################
 def trivial_obs():
     # Model and observation params
@@ -490,6 +549,218 @@ def nontrivial_obs_memopt_missing_modes(Npoly=9, lats=None, chrom=None, basemap_
         np.save("saves/MLmod/"+prestr+savetag+"fid_a00.npy", fid_a00)
         np.save("saves/MLmod/"+prestr+savetag+"rec_a00.npy", rec_a00)
         np.save("saves/MLmod/"+prestr+savetag+"rec_a00_err.npy", a00_error)
+    del mat_A
+    del mat_A_mod
+    del mat_A_unmod
+
+def nontrivial_obs_memopt_missing_modes_21dip(Npoly=9, lats=None, chrom=None, basemap_err=5, err_type='idx', mcmc=False, mcmc_pos=None, savetag="", numerical_corr=False, steps=10000, burn_in=3000, plotml=True, lmax=None, lmod=None):
+    """
+    nontrivial_obs_memopt_missing_modes except we also fit the 21-cm dipole.
+    """
+    # Mapmaking pipeline parameters.
+    nside   = 32
+    if lmax is None:
+        lmax = 32
+    if lmod is None:
+        lmod = 5
+    Nlmax   = RS.get_size(lmax)
+    Nlmod   = RS.get_size(lmod)
+
+    # Observation and binning params.
+    Ntau  = None
+    Nt    = 24
+    times = np.linspace(0, 24, Nt, endpoint=False)
+    nuarr = np.linspace(50,100,51)
+    if lats is None:
+        lats = np.array([-26*3, -26*2, -26, 0, 26, 26*2, 26*3])
+
+    # Cosmological parameters.
+    cm21_params = OBS.cm21_params
+    
+    # Foreground correction reference frequency.
+    err_ref = 70
+
+    # Generate foreground and 21-cm signal alm
+    cm21_alm = SM.cm21_gauss_mondip_alm(nu=nuarr, lmax=lmax, params=OBS.cm21_params_mondip)
+    fg_alm   = SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, 
+        use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err, ref_freq=err_ref), 
+        err_type=err_type, seed=100, meancorr=False)
+    fid_alm  = fg_alm + cm21_alm
+
+    # Generate observation matrix for the modelling and for the observations.
+    if chrom is not None:
+        if not isinstance(chrom, bool):
+            chromfunc = partial(BF.fwhm_func_tauscher, c=chrom)
+        else:
+            chromfunc = BF.fwhm_func_tauscher
+        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan_chromatic(nuarr, nside, lmax, Ntau=Ntau, lats=lats, times=times, return_mat=False, beam_use=BF.beam_cos_FWHM, chromaticity=chromfunc)
+        mat_A_mod = mat_A[:,:Nlmod]
+    elif chrom is None:
+        narrow_cosbeam  = lambda x: BF.beam_cos(x, 0.8)
+        mat_A = FM.calc_observation_matrix_multi_zenith_driftscan(nside, lmax, Ntau=Ntau, lats=lats, times=times, beam_use=narrow_cosbeam, return_mat=False)
+        mat_A = BlockMatrix(mat=mat_A, mode='block', nblock=len(nuarr))
+        mat_A_mod = mat_A[:,:Nlmod]
+    
+    # Perform fiducial observations
+    d = mat_A @ fid_alm
+    dnoisy, noise_covar = SM.add_noise(d, 1, Ntau=len(times), t_int=200, seed=456)#t_int=100, seed=456)#
+    sample_noise = np.sqrt(noise_covar.block[0][0,0])
+    print(f"Data generated with noise {sample_noise} K at 50 MHz in the first bin")
+
+    # Calculate the missing-modes observation matrix.
+    mat_A_unmod = BlockMatrix(mat_A.block[:,:,Nlmod:])
+
+    # Generate a missing-modes correction numerically by generating instances of 
+    # the GSMA and finding the mean and covariance.
+    if numerical_corr:
+        fg_alm_list = []
+        for i in range(100):
+            if err_type=='idx':
+                fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=SM.basemap_err_to_delta(basemap_err, ref_freq=err_ref), err_type=err_type, seed=123+i, meancorr=False))
+            else:
+                fg_alm_list.append(SM.foreground_gsma_alm_nsidelo(nu=nuarr, lmax=lmax, nside=nside, use_mat_Y=True, delta=basemap_err, err_type=err_type, seed=123+i))
+        fg_alm_arr = np.array(fg_alm_list)
+        fg_alm_arr = np.array(np.split(fg_alm_arr, len(nuarr), axis=1))
+        fg_alm_unmod_arr  = fg_alm_arr[:,:,Nlmod:]
+        # Step 3: Compute the data correction and covariance correction.
+        data_corr  = []
+        covar_corr = []
+        for alm_block, mat_A_unmod_block in zip(fg_alm_unmod_arr, mat_A_unmod.block):
+            alm_block_mean = np.mean(alm_block, axis=0)
+            alm_block_cov  = np.cov(alm_block, rowvar=False)
+            data_corr.append(mat_A_unmod_block @ alm_block_mean)
+            covar_corr.append(mat_A_unmod_block @ alm_block_cov @ mat_A_unmod_block.T)
+        data_corr = BlockVector(np.array(data_corr))
+        covar_corr = BlockMatrix(np.array(covar_corr))
+    
+    # Generate a missing-modes correction analytically.
+    elif not numerical_corr:
+        alm_mean, alm_cov = SM.gsma_corr(lmod, lmax, nside, nuarr, basemap_err, ref_freq=err_ref)
+        data_corr = mat_A_unmod @ alm_mean
+        covar_corr = mat_A_unmod @ alm_cov @ mat_A_unmod.T
+
+    # Reconstruct the max likelihood estimate of the alm
+    mat_W, cov = MM.calc_ml_estimator_matrix(mat_A=mat_A_mod, mat_N=noise_covar+covar_corr, cov=True, cond=True)
+    if isinstance(cov, BlockMatrix):
+        alm_error = np.sqrt(cov.diag)
+    else:
+        alm_error = np.sqrt(np.diag(cov))
+    print("Computing rec alm")
+    if isinstance(mat_W, BlockMatrix):
+        rec_alm = mat_W @ (dnoisy - data_corr)
+    else:
+        rec_alm = mat_W @ (dnoisy - data_corr).vector
+
+    # Compute the chi-square and compare it to the length of the data vector.
+    print("Computing chi-sq")
+    chi_sq = ((dnoisy - data_corr) - mat_A_mod@rec_alm).T @ noise_covar.inv @ ((dnoisy - data_corr) - mat_A_mod@rec_alm)
+    chi_sq = sum(chi_sq.diag)
+    print("Chi-square:", chi_sq, "len(data):", dnoisy.vec_len,"+/-", np.sqrt(2*dnoisy.vec_len), "Nparams:", Nlmod*len(nuarr))
+    
+    # Extract the monopole and dipole components of the reconstructed alm.
+    if isinstance(rec_alm, BlockVector):
+        rec_a00  = np.array(rec_alm.vector[::Nlmod])
+        rec_a1m1 = np.array(rec_alm.vector[1::Nlmod])
+        rec_a10  = np.array(rec_alm.vector[2::Nlmod])
+        rec_a1p1 = np.array(rec_alm.vector[3::Nlmod])
+    else:
+        rec_a00  = np.array(rec_alm[::Nlmod])
+        rec_a1m1 = np.array(rec_alm[1::Nlmod])
+        rec_a10  = np.array(rec_alm[2::Nlmod])
+        rec_a1p1 = np.array(rec_alm[3::Nlmod])
+    a00_error  = np.array(alm_error[::Nlmod])
+    a1m1_error = np.array(alm_error[1::Nlmod])
+    a10_error  = np.array(alm_error[2::Nlmod])
+    a1p1_error = np.array(alm_error[3::Nlmod])
+
+    # Fit the reconstructed a00 component with a polynomial and 21-cm gaussian
+    fg_mon_p0 = [15, 2.5]
+    fg_mon_p0 += [.001]*(Npoly-2)
+    cm21_mon_p0 = cm21_params
+    bounds = [[1, 25], [1.5, 3.5]]
+    bounds += [[-2, 2.1]]*(Npoly-2)
+    bounds += [[-0.4, -0.02], [62, 88], [6, 14]]
+    bounds = list(zip(*bounds))
+    res_00 = curve_fit(f=fg_cm21_polymod, xdata=nuarr, ydata=rec_a00, sigma=a00_error, p0=fg_mon_p0+cm21_mon_p0, bounds=bounds)
+    
+    fg_mon_p0 = [5, 2.5]
+    fg_mon_p0 += [.001]*(Npoly-2)
+    cm21_mon_p0 = cm21_params
+    bounds = [[1, 25], [1.5, 3.5]]
+    bounds += [[-2, 2.1]]*(Npoly-2)
+    bounds += [[-1e-2,1e-2], [-0.4, -0.02], [62, 88], [6, 14]]
+    bounds = list(zip(*bounds))
+    res_1m1 = curve_fit(f=fg_cm21dip_polymod, xdata=nuarr, ydata=rec_a1m1, sigma=a1m1_error, p0=fg_mon_p0+[OBS.cm21_dip_mag]+cm21_mon_p0, bounds=bounds)
+    
+    fg_mon_p0 = [5, 2.5]
+    fg_mon_p0 += [.001]*(Npoly-2)
+    cm21_mon_p0 = cm21_params
+    bounds = [[1, 25], [1.5, 3.5]]
+    bounds += [[-2, 2.1]]*(Npoly-2)
+    bounds += [[-1e-2,1e-2], [-0.4, -0.02], [62, 88], [6, 14]]
+    bounds = list(zip(*bounds))
+    res_10 = curve_fit(f=fg_cm21dip_polymod, xdata=nuarr, ydata=rec_a10, sigma=a10_error, p0=fg_mon_p0+[OBS.cm21_dip_mag]+cm21_mon_p0, bounds=bounds)
+    
+    fg_mon_p0 = [5, 2.5]
+    fg_mon_p0 += [.001]*(Npoly-2)
+    cm21_mon_p0 = cm21_params
+    bounds = [[1, 25], [1.5, 3.5]]
+    bounds += [[-2, 2.1]]*(Npoly-2)
+    bounds += [[-1e-2,1e-2], [-0.4, -0.02], [62, 88], [6, 14]]
+    bounds = list(zip(*bounds))
+    res_1p1 = curve_fit(f=fg_cm21dip_polymod, xdata=nuarr, ydata=rec_a1p1, sigma=a1p1_error, p0=fg_mon_p0+[OBS.cm21_dip_mag]+cm21_mon_p0, bounds=bounds)
+
+    if plotml:
+        _plot_results(nuarr, Nlmax, Nlmod, rec_alm.vector, alm_error, fid_alm, cm21_alm, res_00)
+
+    if mcmc:
+        def mod(theta):
+            return fg_cm21_mondip_mod(nuarr, *theta)
+        
+        # create a small ball around the MLE to initialize each walker
+        nwalkers, fg_dim = 64, Npoly*3 + 3 + 3
+        ndim = fg_dim
+        if mcmc_pos is not None:
+            pos = mcmc_pos*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+        else:
+            p0  = np.append(res_00[0], res_1m1[0][:Npoly+1])
+            p0  = np.append(res_00[0], res_10[0][:Npoly+1])
+            p0  = np.append(res_00[0], res_1p1[0][:Npoly+1])
+            pos = p0*(1 + 1e-4*np.random.randn(nwalkers, ndim))
+        priors_mon = [[1, 25], [1.5, 3.5]]
+        priors_mon += [[-2, 2.1]]*(Npoly-2)
+        priors_mon += [[-0.5, -0.01], [60, 90], [5, 15]]
+        priors_dip = [[1, 25], [1.5, 3.5]]
+        priors_dip += [[-2, 2.1]]*(Npoly-2)
+        priors_dip += [[1e-2, -1.1e-2]]
+        priors = np.array(priors_mon + priors_dip + priors_dip + priors_dip)
+        # run emcee without priors
+        y = np.concatenate((rec_a00, rec_a1m1, rec_a10, rec_a1p1))
+        yerr = np.concatenate((a00_error, a1m1_error, a10_error, a1p1_error))
+        sampler = EnsembleSampler(nwalkers, ndim, INF.log_posterior, 
+                            args=(y, yerr, mod, priors))
+        _=sampler.run_mcmc(pos, nsteps=steps, progress=True, skip_initial_state_check=True)
+        chain_mcmc = sampler.get_chain(flat=True, discard=burn_in)
+
+        prestr = f"Nant<{len(lats)}>_Npoly<{Npoly}>_"
+        if chrom is None:
+            prestr += "achrom_"
+        else:
+            prestr += "chrom<{:.1e}>_".format(chrom)
+        if basemap_err is not None:
+            prestr += err_type+"<{}>_".format(basemap_err)
+    
+        np.save("saves/MLmod_mondip/"+prestr+savetag+"mcmcChain.npy", chain_mcmc)
+        
+
+        # Calculate the total model residuals and save them for plotting.
+        fid_a00 = fid_alm[::Nlmax]
+        np.save("saves/MLmod_mondip/"+prestr+savetag+"modres.npy", ((dnoisy-data_corr) - mat_A_mod@rec_alm).vector)
+        np.save("saves/MLmod_mondip/"+prestr+savetag+"data.npy", dnoisy.vector)
+        np.save("saves/MLmod_mondip/"+prestr+savetag+"dataerr.npy", np.sqrt(noise_covar.diag+covar_corr.diag))
+        np.save("saves/MLmod_mondip/"+prestr+savetag+"fid_a00.npy", fid_a00)
+        np.save("saves/MLmod_mondip/"+prestr+savetag+"rec_a00.npy", rec_a00)
+        np.save("saves/MLmod_mondip/"+prestr+savetag+"rec_a00_err.npy", a00_error)
     del mat_A
     del mat_A_mod
     del mat_A_unmod
