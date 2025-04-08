@@ -167,64 +167,6 @@ def cm21_gauss_mon_alm(nu, lmax, params = None):
         A, nu0, dnu = params
     return cm21_gauss_mondip_alm(nu, lmax, params=[A, nu0, dnu, 0, 0, 0])
 
-def cm21_gauss_mondip_alm_pymc(nu, lmax, params = None):
-    """
-    Given the lmax for real alms build a model consisting of the
-    monopole + dipole from the 21cm signal as a Gaussian.
-
-    Create copies of the alm for each frequency to
-    return mock = (alms(nu1), alms(nu2), ...)
-
-    This version intended for testing with pymc.
-
-    output is [Nfreq x Nalm, 1]
-
-    """
-    if params is None:
-        A = -0.2
-        nu0 = 80.0
-        dnu = 5.0
-        beta = 1.2e-3
-        alpha = 0.2*np.pi
-        delta = 0.5*np.pi
-    else:
-        A, nu0, dnu, beta, alpha, delta = params
-
-    # calculate monopole and dipole temperatures
-    chi = (nu - nu0) / dnu
-    Tmono = A * np.exp(-0.5 * chi * chi)
-    dTmono = -chi / dnu * Tmono
-    Tdip = beta * (Tmono - nu * dTmono)
-
-    #calculate monopole and dipole coefficients
-    a00 = np.sqrt(4*np.pi)
-    norm = np.sqrt(4.0 * np.pi / 3.0)
-    a10  = norm * np.cos(delta)
-    a11p = norm * np.sin(delta) * np.cos(alpha)
-    a11m = norm * np.sin(delta) * np.sin(alpha)
-
-    # projection basis
-    Nalm = RS.get_size(lmax)
-    proj00 = np.zeros([1,Nalm])
-    proj00[0,0] = 1
-    proj11m = np.zeros([1,Nalm])
-    proj11m[0,1] = 1
-    proj10 = np.zeros([1,Nalm])
-    proj10[0,2] = 1
-    proj11p = np.zeros([1,Nalm])
-    proj11p[0,3] = 1
-
-    #outer product to create matrix
-    mock = proj00.T * Tmono * a00
-    mock += proj11m.T * Tdip * a11m
-    mock += proj10.T * Tdip * a10
-    mock += proj11p.T * Tdip * a11p
-
-    mock = mock.T
-    mock = mock.reshape([len(nu) * Nalm, 1])
-
-    return mock
-
 def foreground_mondip_alm(nu, lmax, params = None):
     """
     Given the lmax for real alms build a model consisting of the
