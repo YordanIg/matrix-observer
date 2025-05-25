@@ -114,6 +114,37 @@ def plot_lmod_nside_investigation():
     plt.savefig("fig/lmod_nside_investigation.pdf")
     plt.show()
 
+def plot_lmod_investigation():
+    """
+    Plot the RMS residuals to observing the sky from the LWA site in 3 time bins
+    across a single day, compared across multiple LMOD values.
+    This list is generated using NSIDE 64, with LMOD=[2, 4, 8, 16, 32, 64].
+    The x axis ranges from LMOD=2->32, where e.g. the LMOD=2 point signifies the
+    residuals between the LMOD=4 and LMOD=2 observations.
+
+    Does not include the second plot that plot_lmod_nside_investigation does.
+    """
+    d_list = np.load('INLR_d_list.npy')
+    pars = [2, 4, 8, 16, 32, 64]
+    # Plot std error between each l value and the next l value, i.e. the first is RMS(l=2 - l=4).
+    xx = list(range(len(d_list)-1))
+    yy = [np.std(d_list[i]-d_list[i+1]) for i in range(len(d_list)-1)]
+
+    fig, ax = plt.subplots(figsize=(4.2, 3.5))
+    ax.loglog(pars[:-1],yy)
+    ax.set_xticks(ticks=[], labels=[], minor=True)
+    ax.set_xticks(ticks=pars[:-1], labels=pars[:-1], minor=False)
+    ax.axhline(y=0.1, linestyle=':', color='k')
+    ax.text(x=2.5,y=0.1*1.1, s="21-cm signal scale")
+    ax.set_xlim(pars[0], pars[-2])
+    ax.set_ylim(yy[-1], yy[0])
+    ax.set_ylabel("RMS residual temperature [K]")
+    ax.set_xlabel(r"$l_\mathrm{max}$")
+    fig.tight_layout()
+    fig.savefig("fig/lmod_investigation.png")
+    fig.savefig("fig/lmod_investigation.pdf")
+    plt.show()
+
 ################################################################################
 # Skytrack maps with modelled and unmodelled foreground modes.
 ################################################################################
