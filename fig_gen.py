@@ -340,11 +340,11 @@ def plot_monopole_reconstruction_err():
         alm_rec_truncs_nonoise = [mat_W_i @ d_i for mat_W_i,d_i in zip(mat_W_truncs,d_truncs)]
 
         # Visualise the reconstruction error for the monopole in each case.
-        mon_err = [1e3*np.abs((alm_rec_i[0]-fg_i[0])*alm2temp) for fg_i,alm_rec_i in zip(fg_truncs,alm_rec_truncs)]
-        mon_err_nonoise = [1e3*np.abs((alm_rec_i[0]-fg_i[0])*alm2temp) for fg_i,alm_rec_i in zip(fg_truncs,alm_rec_truncs_nonoise)]
+        mon_err = [np.abs((alm_rec_i[0]-fg_i[0])*alm2temp) for fg_i,alm_rec_i in zip(fg_truncs,alm_rec_truncs)]
+        mon_err_nonoise = [np.abs((alm_rec_i[0]-fg_i[0])*alm2temp) for fg_i,alm_rec_i in zip(fg_truncs,alm_rec_truncs_nonoise)]
 
         # Visualise the reconstruction error for the lmod=5 case.
-        alm_err_lmod5 = 1e3*np.abs((alm_rec_truncs[5]-fg_truncs[5])*alm2temp)
+        alm_err_lmod5 = np.abs((alm_rec_truncs[5]-fg_truncs[5])*alm2temp)
 
         return mon_err, mon_err_nonoise, alm_err_lmod5
     
@@ -361,24 +361,24 @@ def plot_monopole_reconstruction_err():
     ax[0].plot(ell_arr,mon_err7, label=r'$N_\mathrm{ant}$=7', linestyle=lss[0])
     ax[0].plot(ell_arr,mon_err5, label=r'$N_\mathrm{ant}$=5', linestyle=lss[1])
     ax[0].plot(ell_arr,mon_err3, label=r'$N_\mathrm{ant}$=3', linestyle=lss[2])
-    ax[0].axhline(y=130, color='k')
+    ax[0].axhline(y=0.1, color='k')
     ax0_majorticks = list(range(0,ell_arr[-1]+1,2))
     ax[0].set_xticks(ticks=ax0_majorticks, minor=False)
     ax[0].set_xticks(ticks=ell_arr, minor=True)
     ax[0].set_xlabel(r"$l_\mathrm{mod}$")
-    ax[0].set_ylabel(r"Monopole Reconstruction Error [mK]")
+    ax[0].set_ylabel(r"Monopole Reconstruction Error [K]")
     ax[0].set_xlim(0,12)
-    ax[0].set_ylim(0.004, 1000)#(0.4, 1000)
+    ax[0].set_ylim(0.004*1e-3, 1000*1e-3)#(0.4, 1000)
     ax[0].legend()
 
-    ax[1].axhline(y=130, color='k')
+    ax[1].axhline(y=0.1, color='k')
     ax[1].semilogy(alm_err_lmod5_7, linestyle=lss[0])
     ax[1].semilogy(alm_err_lmod5_5, linestyle=lss[1])
     ax[1].semilogy(alm_err_lmod5_3, linestyle=lss[2])
     ax1_minorticks = list(range(0,len(alm_err_lmod5_7)))
     ax[1].set_xticks(ticks=ax1_minorticks, minor=True)
     ax[1].set_xlim(0,len(alm_err_lmod5_7)-1)
-    ax[1].set_ylabel(r"Multipole Reconstruction Error [mK]")
+    ax[1].set_ylabel(r"Multipole Reconstruction Error [K]")
     ax[1].set_xlabel(r"$\mathbf{a}$ vector index")
 
     fig.tight_layout()
