@@ -1065,7 +1065,7 @@ def plot_showcase_binwise():
 
     # Create single subplot for bottom-right panel
     ax_br = fig.add_subplot(gs[1, 1])
-    Npoly1, Npoly2, Npoly3 = 3, 5, 6
+    Npoly1, Npoly2, Npoly3 = 3, 7, 7
     runstr_tl = construct_runstr(Nant=7, Npoly=Npoly1, chromstr=None, basemap_err=None)
     runstr_tr = construct_runstr(Nant=7, Npoly=Npoly2, chromstr='1.6e-02', basemap_err=None)
     runstr_bl = construct_runstr(Nant=7, Npoly=Npoly3, chromstr='3.4e-02', basemap_err=None)
@@ -1127,9 +1127,9 @@ def plot_showcase_binwise():
     runstrs_chrom0     = [construct_runstr(Nant=7, Npoly=Npoly, chromstr=None, basemap_err=None) for Npoly in Npolys]
     runstrs_chromsmall = [construct_runstr(Nant=7, Npoly=Npoly, chromstr='1.6e-02', basemap_err=None) for Npoly in Npolys]
     runstrs_chrom      = [construct_runstr(Nant=7, Npoly=Npoly, chromstr='3.4e-02', basemap_err=None) for Npoly in Npolys]
-    bics_chrom0     = [np.load('saves/Binwise/'+runstr+'_bic.npy') for runstr in runstrs_chrom0]
-    bics_chromsmall = [np.load('saves/Binwise/'+runstr+'_bic.npy') for runstr in runstrs_chromsmall]
-    bics_chrom      = [np.load('saves/Binwise/'+runstr+'_bic.npy') for runstr in runstrs_chrom]
+    bics_chrom0     = [np.load('saves/Binwise/'+runstr+'M_bic.npy') for runstr in runstrs_chrom0]
+    bics_chromsmall = [np.load('saves/Binwise/'+runstr+'M_bic.npy') for runstr in runstrs_chromsmall]
+    bics_chrom      = [np.load('saves/Binwise/'+runstr+'M_bic.npy') for runstr in runstrs_chrom]
     ax_br.semilogy(Npolys, bics_chrom0, color='C0', linestyle='-', marker='o', label='achromatic')
     ax_br.semilogy(Npolys, bics_chromsmall, color='C1', linestyle='-', marker='s', label='c=1.6e-02')
     ax_br.semilogy(Npolys, bics_chrom, color='C2', linestyle='-', marker='^', label='c=3.4e-02')
@@ -1138,6 +1138,7 @@ def plot_showcase_binwise():
     ax_br.legend(loc='upper right')
     ax_br.set_xticks(ticks=Npolys, labels=Npolys, minor=False)
     ax_br.set_xlim([Npolys[0], Npolys[-1]])
+    ax_br.set_ylim(15, 1e7)
 
     # Set spacing between subplots
     fig.tight_layout()
